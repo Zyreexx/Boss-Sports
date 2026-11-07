@@ -29,8 +29,36 @@ if (!fs.existsSync(AUTH_DB_DIR)) {
   fs.mkdirSync(AUTH_DB_DIR, { recursive: true });
 }
 
-// Initial Users List (empty in production; accounts register via Google or Signup)
-const initialUsers: UserAccount[] = [];
+// Demo / Seed Accounts for Manual Testing
+const initialUsers: UserAccount[] = [
+  {
+    id: "usr-owner-01",
+    email: "owner@boss.com",
+    phone: "9999999999",
+    name: "Hiren Patel (Owner)",
+    role: "OWNER",
+    passwordHash: "BossOwner@2026",
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "usr-emp-01",
+    email: "staff@boss.com",
+    phone: "8888888888",
+    name: "Karan Desai (Staff Desk)",
+    role: "EMPLOYEE",
+    passwordHash: "BossStaff@2026",
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "usr-cust-01",
+    email: "player@boss.com",
+    phone: "9876543210",
+    name: "Vikram Singhania (Player)",
+    role: "CUSTOMER",
+    passwordHash: "BossPlayer@2026",
+    createdAt: new Date().toISOString(),
+  },
+];
 
 class AuthDatabaseService {
   private loadUsers(): UserAccount[] {
@@ -86,7 +114,7 @@ class AuthDatabaseService {
     } else if (user.role === "EMPLOYEE") {
       redirectUrl = "/staff";
     } else {
-      redirectUrl = "/";
+      redirectUrl = "/profile";
     }
 
     // Generate lightweight deterministic session token
