@@ -5,6 +5,9 @@ set -o errexit
 # Install python dependencies
 pip install -r requirements.txt
 
+# Ensure start script has execute permissions
+chmod +x ./start.sh
+
 # Collect static files for Django Admin
 python manage.py collectstatic --no-input
 
