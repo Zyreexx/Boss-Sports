@@ -244,7 +244,7 @@ export default function OwnerAdminPage() {
       const data = await res.json();
       if (data.success) {
         fetchSchedules();
-        fetchMetrics();
+        fetchReports();
         alert(`✓ Arena is now officially CLOSED for today (${reason}). Public bookings are locked.`);
       } else {
         alert(data.error || "Failed to update status");
@@ -271,7 +271,7 @@ export default function OwnerAdminPage() {
       const data = await res.json();
       if (data.success) {
         fetchSchedules();
-        fetchMetrics();
+        fetchReports();
         alert("✓ Arena is now OPEN for public bookings today!");
       } else {
         alert(data.error || "Failed to reopen");

@@ -225,13 +225,22 @@ interface PickleballDatabaseState {
   galleryItems?: GalleryItem[];
 }
 
-const DB_DIR = path.join(process.cwd(), "data");
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const DB_DIR = isServerless ? "/tmp" : path.join(process.cwd(), "data");
 const DB_FILE = path.join(DB_DIR, "pickleball_database.json");
+const BUNDLED_DB_FILE = path.join(process.cwd(), "data", "pickleball_database.json");
 
-// Ensure directory exists
-if (!fs.existsSync(DB_DIR)) {
-  fs.mkdirSync(DB_DIR, { recursive: true });
+// Ensure directory exists if not serverless
+try {
+  if (!fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+  }
+} catch {
+  // Ignored in read-only environments
 }
+
+// In-Memory cache for serverless environments
+let inMemoryState: PickleballDatabaseState | null = null;
 
 // Initial Seed Data
 const initialPickleballState: PickleballDatabaseState = {
@@ -296,10 +305,17 @@ const initialPickleballState: PickleballDatabaseState = {
 
 class PickleballDatabaseService {
   private load(): PickleballDatabaseState {
+    if (inMemoryState) {
+      return inMemoryState;
+    }
+
     let state: PickleballDatabaseState = initialPickleballState;
     try {
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, "utf-8");
+        state = JSON.parse(raw);
+      } else if (fs.existsSync(BUNDLED_DB_FILE)) {
+        const raw = fs.readFileSync(BUNDLED_DB_FILE, "utf-8");
         state = JSON.parse(raw);
       }
     } catch (e) {
@@ -333,11 +349,18 @@ class PickleballDatabaseService {
       state.galleryItems = [...defaultGalleryItems];
     }
 
+    inMemoryState = state;
     return state;
   }
 
   private save(state: PickleballDatabaseState): void {
-    fs.writeFileSync(DB_FILE, JSON.stringify(state, null, 2), "utf-8");
+    inMemoryState = state;
+    try {
+      fs.writeFileSync(DB_FILE, JSON.stringify(state, null, 2), "utf-8");
+    } catch (e) {
+      // In serverless environments (e.g. AWS Lambda / Vercel), fallback to in-memory state
+      console.warn("Notice: Persistent disk is read-only in this environment. State saved in-memory.", e);
+    }
   }
 
   // 1. Get all active courts

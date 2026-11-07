@@ -22,12 +22,20 @@ export interface UserAccount {
   createdAt: string;
 }
 
-const AUTH_DB_DIR = path.join(process.cwd(), "data");
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const AUTH_DB_DIR = isServerless ? "/tmp" : path.join(process.cwd(), "data");
 const AUTH_DB_FILE = path.join(AUTH_DB_DIR, "users_auth.json");
+const BUNDLED_AUTH_FILE = path.join(process.cwd(), "data", "users_auth.json");
 
-if (!fs.existsSync(AUTH_DB_DIR)) {
-  fs.mkdirSync(AUTH_DB_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(AUTH_DB_DIR)) {
+    fs.mkdirSync(AUTH_DB_DIR, { recursive: true });
+  }
+} catch {
+  // Ignored in read-only environments
 }
+
+let inMemoryUsers: UserAccount[] | null = null;
 
 // Demo / Seed Accounts for Manual Testing
 const initialUsers: UserAccount[] = [
@@ -62,23 +70,35 @@ const initialUsers: UserAccount[] = [
 
 class AuthDatabaseService {
   private loadUsers(): UserAccount[] {
+    if (inMemoryUsers) {
+      return inMemoryUsers;
+    }
+
     try {
-      if (!fs.existsSync(AUTH_DB_FILE)) {
-        this.saveUsers(initialUsers);
-        return initialUsers;
+      if (fs.existsSync(AUTH_DB_FILE)) {
+        const raw = fs.readFileSync(AUTH_DB_FILE, "utf-8");
+        inMemoryUsers = JSON.parse(raw);
+        return inMemoryUsers!;
+      } else if (fs.existsSync(BUNDLED_AUTH_FILE)) {
+        const raw = fs.readFileSync(BUNDLED_AUTH_FILE, "utf-8");
+        inMemoryUsers = JSON.parse(raw);
+        return inMemoryUsers!;
       }
-      const raw = fs.readFileSync(AUTH_DB_FILE, "utf-8");
-      return JSON.parse(raw);
+      inMemoryUsers = [...initialUsers];
+      return inMemoryUsers;
     } catch (e) {
-      return initialUsers;
+      inMemoryUsers = [...initialUsers];
+      return inMemoryUsers;
     }
   }
 
   private saveUsers(users: UserAccount[]) {
+    inMemoryUsers = users;
     try {
       fs.writeFileSync(AUTH_DB_FILE, JSON.stringify(users, null, 2), "utf-8");
     } catch (e) {
-      console.error("Failed to save auth db", e);
+      // In serverless environments, state remains intact in-memory
+      console.warn("Notice: Auth disk is read-only in this environment. State saved in-memory.", e);
     }
   }
 
