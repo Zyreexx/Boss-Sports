@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: boss_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: boss_pickleball
+      POSTGRES_USER: boss_user
+      POSTGRES_PASSWORD: boss_secure_password_2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # 2. Redis Cache & Celery Message Broker
+  redis:
+    image: redis:7-alpine
+    container_name: boss_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # 3. Django Web API Server
+  web:
+    build: .
+    container_name: boss_django_api
+    restart: always
+    command: >
+      sh -c "python manage.py migrate &&
+             python seed.py &&
+             python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_DB=boss_pickleball
+      - POSTGRES_USER=boss_user
+      - POSTGRES_PASSWORD=boss_secure_password_2026
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+      - DJANGO_DEBUG=True
+    depends_on:
+      - db
+      - redis
+
+  # 4. Celery Asynchronous Worker
+  celery_worker:
+    build: .
+    container_name: boss_celery_worker
+    restart: always
+    command: celery -A boss_backend worker -l info
+    volumes:
+      - .:/app
+    environment:
+      - POSTGRES_DB=boss_pickleball
+      - POSTGRES_USER=boss_user
+      - POSTGRES_PASSWORD=boss_secure_password_2026
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+
+  # 5. Celery Beat Periodic Task Scheduler
+  celery_beat:
+    build: .
+    container_name: boss_celery_beat
+    restart: always
+    command: celery -A boss_backend beat -l info
+    volumes:
+      - .:/app
+    environment:
+      - POSTGRES_DB=boss_pickleball
+      - POSTGRES_USER=boss_user
+      - POSTGRES_PASSWORD=boss_secure_password_2026
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  postgres_data:
+  redis_data:
