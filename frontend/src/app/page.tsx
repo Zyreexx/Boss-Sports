@@ -32,7 +32,14 @@ export default function HomePage() {
   const [currentUser, setCurrentUser] = useState<any | null>(null);
 
   // --- Real-time Interactive Booking Engine State ---
-  const [bookingDate, setBookingDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const todayDate = React.useMemo(() => {
+    try {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    } catch {
+      return new Date().toISOString().split("T")[0];
+    }
+  }, []);
+  const [bookingDate, setBookingDate] = useState<string>(todayDate);
   const [courts, setCourts] = useState<any[]>([]);
   const [selectedCourtId, setSelectedCourtId] = useState<string>("court-1");
   const [availableSlots, setAvailableSlots] = useState<any[]>([]);
@@ -637,6 +644,7 @@ export default function HomePage() {
                   <span className="text-xs font-semibold text-neutral-800">Date:</span>
                   <input
                     type="date"
+                    min={todayDate}
                     value={bookingDate}
                     onChange={(e) => setBookingDate(e.target.value)}
                     className="border border-neutral-200 rounded-lg px-3 py-1.5 text-xs text-neutral-800 focus:outline-none focus:border-[#0000ee]"
@@ -707,13 +715,28 @@ export default function HomePage() {
                             <span className="text-xs font-medium">{slot.timeLabel}</span>
                             <span
                               className={`w-2 h-2 rounded-full ${
-                                slot.isAvailable ? "bg-emerald-500" : "bg-red-400"
+                                slot.isAvailable
+                                  ? "bg-emerald-500"
+                                  : slot.status === "PASSED"
+                                  ? "bg-neutral-400"
+                                  : "bg-red-400"
                               }`}
+                              title={
+                                slot.isAvailable
+                                  ? "Available"
+                                  : slot.status === "PASSED"
+                                  ? "Slot time has passed"
+                                  : "Booked / Blocked"
+                              }
                             />
                           </div>
                           <div className="flex items-center justify-between pt-1">
                             <span className="text-[11px] opacity-75">
-                              {slot.isAvailable ? `₹${slot.price}` : "Booked / Blocked"}
+                              {slot.isAvailable
+                                ? `₹${slot.price}`
+                                : slot.status === "PASSED"
+                                ? "Time Passed"
+                                : "Booked / Blocked"}
                             </span>
                             {slot.isPeak && slot.isAvailable && (
                               <span className="text-[9px] font-bold uppercase tracking-wider text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded">

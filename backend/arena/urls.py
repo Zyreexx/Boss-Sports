@@ -13,3 +13,4 @@ urlpatterns = [
     path('reports/today/', ArenaReportView.as_view(), name='reports_today'),
     path('', include(router.urls)),
 ]
+

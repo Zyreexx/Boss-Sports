@@ -101,3 +101,4 @@ The `seed.py` script automatically creates:
 - `POST /api/gallery/` — Add or replace gallery media (Owner / Staff only)
 - `POST /api/auth/login/` — Authenticate via email, phone, or username
 - `GET /api/reports/today/` — Arena revenue and occupancy summary
+

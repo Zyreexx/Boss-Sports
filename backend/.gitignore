@@ -20,3 +20,4 @@ celerybeat.pid
 # Uploaded Media & Static
 media/
 staticfiles/
+

@@ -710,7 +710,16 @@ class PickleballDatabaseService {
       const courtHolds = state.holds.filter((h) => h.courtId === court.id);
       const courtBlocks = state.blocks.filter((bl) => bl.courtId === court.id);
 
+      // Indian Standard Time (IST Asia/Kolkata) comparison for past slot expiry
+      const now = new Date();
+      const istDateString = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+      const istTimeString = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false }).format(now);
+      const isPastDate = dateStr < istDateString;
+      const isToday = dateStr === istDateString;
+
       const slots = slotIntervals.map((interval) => {
+        const isPastSlot = isPastDate || (isToday && interval.start <= istTimeString);
+
         // Check confirmed bookings
         const activeBooking = courtBookings.find((b) =>
           this.hasIntervalOverlap(interval.slotStartIso, interval.slotEndIso, b.startTime, b.endTime)
@@ -727,7 +736,8 @@ class PickleballDatabaseService {
         );
 
         let status = "AVAILABLE";
-        if (activeBlock) status = "BLOCKED";
+        if (isPastSlot) status = "PASSED";
+        else if (activeBlock) status = "BLOCKED";
         else if (activeBooking) status = "BOOKED";
         else if (activeHold) status = "HELD";
 
@@ -876,6 +886,11 @@ class PickleballDatabaseService {
     const court = state.courts.find((c) => c.id === courtId);
     if (!court) {
       return { success: false, error: "Court does not exist." };
+    }
+
+    // Check if slot start time has already passed
+    if (new Date(startTime).getTime() <= Date.now()) {
+      return { success: false, error: "Cannot book a time slot in the past. Please choose an upcoming slot." };
     }
 
     // Atomic Conflict Check

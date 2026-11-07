@@ -79,3 +79,4 @@ def generate_daily_occupancy_report():
         "total_hours": total_hours,
         "total_revenue": float(total_revenue),
     }
+

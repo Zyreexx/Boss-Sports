@@ -47,6 +47,15 @@ class BookingSerializer(serializers.ModelSerializer):
         booking_date = attrs.get('booking_date')
         start_time = attrs.get('start_time')
 
+        # Check if booking date or time has already passed
+        from django.utils import timezone
+        today = timezone.localdate()
+        now_time = timezone.localtime().time()
+        if booking_date < today or (booking_date == today and start_time <= now_time):
+            raise serializers.ValidationError({
+                "slot": "Cannot book a time slot in the past. Please select an upcoming slot."
+            })
+
         # Check for slot collisions
         existing = Booking.objects.filter(
             court=court,
@@ -95,3 +104,4 @@ class GalleryItemSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.media_file.url)
             return obj.media_file.url
         return obj.media_url or ''
+

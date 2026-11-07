@@ -14,3 +14,4 @@ celery -A boss_backend beat -l info &
 # 3. Start Gunicorn Web Server in foreground (binds to Render's dynamic $PORT)
 echo "-> Starting Gunicorn HTTP server on port $PORT..."
 exec gunicorn boss_backend.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 120
+

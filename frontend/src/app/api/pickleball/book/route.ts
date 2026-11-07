@@ -29,6 +29,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Reject bookings for time slots that have already passed
+    if (new Date(startTime).getTime() <= Date.now()) {
+      return NextResponse.json(
+        { success: false, error: "Cannot book a time slot in the past. Please select an upcoming slot." },
+        { status: 400 }
+      );
+    }
+
     // Server-Side Payment & Security Verification
     const sessionActor = getAuthenticatedActor(req);
     const isStaffOrOwner = sessionActor?.role === "OWNER" || sessionActor?.role === "EMPLOYEE";
