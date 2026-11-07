@@ -28,24 +28,7 @@
       "isActive": true
     }
   ],
-  "bookings": [
-    {
-      "id": "BK-002976",
-      "courtId": "court-1",
-      "courtName": "Court 1",
-      "startTime": "2026-11-07T16:30:00.000Z",
-      "endTime": "2026-11-07T17:30:00.000Z",
-      "customerName": "pushp",
-      "customerPhone": "9106601201",
-      "source": "ONLINE",
-      "status": "CONFIRMED",
-      "paymentStatus": "PAY_AT_VENUE",
-      "totalPrice": 400,
-      "discountAmount": 0,
-      "createdAt": "2026-11-07T15:23:22.976Z",
-      "updatedAt": "2026-11-07T15:23:22.976Z"
-    }
-  ],
+  "bookings": [],
   "holds": [],
   "blocks": [],
   "pricingConfig": {
