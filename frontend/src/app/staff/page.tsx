@@ -161,6 +161,77 @@ export default function StaffPanelPage() {
     }
   };
 
+  const todayIst = React.useMemo(() => {
+    try {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    } catch {
+      return new Date().toISOString().split("T")[0];
+    }
+  }, []);
+
+  const todaySchedule = allSchedules.find((s) => s.date === todayIst) || allSchedules.find((s) => s.date === "DEFAULT") || {
+    date: todayIst,
+    isClosed: false,
+    openTime: "06:00",
+    closeTime: "23:00"
+  };
+
+  const handleQuickCloseToday = async () => {
+    const reason = prompt("Enter closure reason for today (e.g. Heavy Rain, Emergency Maintenance, Store Closed):", "Temporary Maintenance / Closed for the day");
+    if (!reason) return;
+    try {
+      const res = await fetch("/api/admin/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: todayIst,
+          isClosed: true,
+          closureReason: reason,
+          openTime: "06:00",
+          closeTime: "23:00",
+          staffId: currentUser?.name ? `staff-${currentUser.name}` : "staff-desk",
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchStaffSchedules();
+        fetchCourts();
+        alert(`✓ Arena is now officially CLOSED for today (${reason}). Customers cannot book.`);
+      } else {
+        alert(data.error || "Failed to update status");
+      }
+    } catch (e) {
+      alert("Network error");
+    }
+  };
+
+  const handleQuickReopenToday = async () => {
+    if (!confirm("Re-open the arena today for regular public bookings (06:00 – 23:00)?")) return;
+    try {
+      const res = await fetch("/api/admin/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: todayIst,
+          isClosed: false,
+          openTime: "06:00",
+          closeTime: "23:00",
+          staffId: currentUser?.name ? `staff-${currentUser.name}` : "staff-desk",
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchStaffSchedules();
+        fetchCourts();
+        alert("✓ Arena is now OPEN for public bookings today!");
+      } else {
+        alert(data.error || "Failed to reopen");
+      }
+    } catch (e) {
+      alert("Network error");
+    }
+  };
+
   const handleSaveStaffSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
     setScheduleMsg(null);
@@ -365,7 +436,65 @@ export default function StaffPanelPage() {
       </header>
 
       {/* Main Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* Quick Store Control & Emergency Daily Closure Banner */}
+        <div className={`p-4 sm:p-5 rounded-3xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all shadow-xl ${
+          todaySchedule?.isClosed
+            ? "bg-gradient-to-r from-amber-950/80 to-amber-900/60 border-amber-500/50 text-amber-100"
+            : "bg-gradient-to-r from-[#0d141f] to-[#121c2c] border-white/10 text-white"
+        }`}>
+          <div className="flex items-center gap-3.5">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl border ${
+              todaySchedule?.isClosed
+                ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
+                : "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
+            }`}>
+              {todaySchedule?.isClosed ? "🏮" : "🟢"}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold text-sm sm:text-base tracking-tight text-white">
+                  Today's Store Status: {todaySchedule?.isClosed ? "CLOSED TODAY" : "OPEN FOR BOOKINGS"}
+                </span>
+                <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${
+                  todaySchedule?.isClosed
+                    ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                    : "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                }`}>
+                  {todaySchedule?.isClosed
+                    ? todaySchedule.closureReason || "Closed"
+                    : `Hours: ${todaySchedule?.openTime || "06:00"} – ${todaySchedule?.closeTime || "23:00"}`}
+                </span>
+              </div>
+              <p className="text-xs text-white/60 mt-1">
+                {todaySchedule?.isClosed
+                  ? "Public bookings are currently LOCKED on the live website. Customers see the holiday/emergency banner."
+                  : "Pickleball courts are active. Customers can only book slots within active operating hours."}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 sm:self-center">
+            {todaySchedule?.isClosed ? (
+              <button
+                type="button"
+                onClick={handleQuickReopenToday}
+                className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs tracking-tight shadow-lg transition-all flex items-center gap-2"
+              >
+                <span>🟢 Reopen Arena for Today</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleQuickCloseToday}
+                className="px-5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 font-extrabold text-xs tracking-tight transition-all flex items-center gap-2"
+              >
+                <span>🏮 Close Arena for Today</span>
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Navigation Tabs */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4 mb-6">
           <div className="flex flex-wrap items-center gap-2 bg-[#0d141f] p-1.5 rounded-2xl border border-white/10">

@@ -128,3 +128,17 @@ class GalleryItem(models.Model):
 
     def __str__(self):
         return f"[{self.get_item_type_display()}] {self.title}"
+
+
+class ArenaSchedule(models.Model):
+    date = models.CharField(max_length=20, unique=True, help_text="YYYY-MM-DD or DEFAULT")
+    is_closed = models.BooleanField(default=False)
+    closure_reason = models.CharField(max_length=255, blank=True, null=True)
+    open_time = models.TimeField(default="06:00")
+    close_time = models.TimeField(default="23:00")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        status = f"CLOSED ({self.closure_reason})" if self.is_closed else f"OPEN ({self.open_time}-{self.close_time})"
+        return f"{self.date}: {status}"
+

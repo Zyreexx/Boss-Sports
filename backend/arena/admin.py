@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User, Court, Booking, GalleryItem
+from .models import User, Court, Booking, GalleryItem, ArenaSchedule
 
 
 @admin.register(User)
@@ -47,3 +47,12 @@ class GalleryItemAdmin(admin.ModelAdmin):
     list_editable = ('is_active', 'order')
     list_filter = ('item_type', 'category', 'is_active')
     search_fields = ('title', 'caption')
+
+
+@admin.register(ArenaSchedule)
+class ArenaScheduleAdmin(admin.ModelAdmin):
+    list_display = ('date', 'is_closed', 'closure_reason', 'open_time', 'close_time', 'updated_at')
+    list_editable = ('is_closed', 'open_time', 'close_time')
+    list_filter = ('is_closed',)
+    search_fields = ('date', 'closure_reason')
+
