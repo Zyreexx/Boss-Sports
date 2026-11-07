@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -66,9 +67,21 @@ WSGI_APPLICATION = 'boss_backend.wsgi.application'
 AUTH_USER_MODEL = 'arena.User'
 
 # Database Configuration:
-# Uses PostgreSQL if POSTGRES_DB is provided, otherwise falls back smoothly to SQLite for local development
+# 1. Render / Cloud: DATABASE_URL (PostgreSQL)
+# 2. Local Docker / Custom: POSTGRES_DB
+# 3. Fallback: Local SQLite for zero-config testing
+DATABASE_URL = os.getenv('DATABASE_URL')
 POSTGRES_DB = os.getenv('POSTGRES_DB', '')
-if POSTGRES_DB:
+
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+elif POSTGRES_DB:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',

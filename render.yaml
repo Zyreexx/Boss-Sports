@@ -1,0 +1,63 @@
+databases:
+  - name: boss-postgres
+    databaseName: boss_pickleball
+    user: boss_admin
+    plan: free
+
+services:
+  # 1. Django REST Web API
+  - type: web
+    name: boss-django-api
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: ./build.sh
+    startCommand: gunicorn boss_backend.wsgi:application
+    envVars:
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_ALLOWED_HOSTS
+        value: ".onrender.com,localhost,127.0.0.1"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: boss-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: boss-redis
+          property: connectionString
+
+  # 2. Celery Background Worker
+  - type: worker
+    name: boss-celery-worker
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A boss_backend worker -l info
+    envVars:
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_SECRET_KEY
+        fromService:
+          type: web
+          name: boss-django-api
+          envVarKey: DJANGO_SECRET_KEY
+      - key: DATABASE_URL
+        fromDatabase:
+          name: boss-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: boss-redis
+          property: connectionString
+
+  # 3. Redis Cache & Celery Broker
+  - type: redis
+    name: boss-redis
+    plan: free
+    ipAllowList: [] # only accessible by internal services
