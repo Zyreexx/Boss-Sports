@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #000000;
+  --surface-1: #000000;
+  --surface-2: #0d1a2c;
+  --surface-3: #c7f711;
+  --accent-1: #0000ee;
+  --accent-2: #0d1a2c;
+  --accent-3: #c7f711;
+  --muted-1: #0000ee;
+  --muted-2: #ffffff;
+  --radius: 16px;
+  --font-sans: 'Switzer Variable', var(--font-manrope), sans-serif, Manrope;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: normal;
+  font-weight: 400;
+  overflow-x: hidden;
+}
+
+h1 {
+  font-size: 64px;
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 1.05;
+}
+
+h2 {
+  font-size: 44px;
+  font-weight: 500;
+  text-transform: capitalize;
+  color: #ffffff;
+  line-height: 1.15;
+}
+
+h3 {
+  font-size: 34px;
+  font-weight: 500;
+  color: #0d1a2c;
+  line-height: 1.2;
+}
+
+.button-primary {
+  background: #C7F711;
+  color: #0000EE;
+  border-radius: 99px;
+  padding: 12px 18px;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+}
+.button-primary:hover {
+  transform: scale(1.03);
+}
+
+.card {
+  background: transparent;
+  color: #000000;
+  border-radius: 16px;
+  font-size: 12px;
+  box-shadow: #0000002E 0px 0.602187px 0.602187px -1.25px, #00000029 0px 2.28853px 2.28853px -2.5px, #0000000F 0px 10px 10px -3.75px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F3F4F6;
+}
+::-webkit-scrollbar-thumb {
+  background: #0d1a2c;
+  border-radius: 4px;
+}

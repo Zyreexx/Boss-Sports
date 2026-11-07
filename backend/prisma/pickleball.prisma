@@ -1,0 +1,152 @@
+// ==========================================
+// PICKLEBALL SEPARATE DATABASE SCHEMA
+// Authority: docs/rules.md, docs/prd.md
+// ==========================================
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL_PICKLEBALL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/pickleball"
+}
+
+enum BookingSource {
+  ONLINE
+  PHONE
+  WALKIN
+}
+
+enum BookingStatus {
+  HELD
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PAID_ONLINE
+  CASH_COUNTER
+  UPI_COUNTER
+  PAY_AT_VENUE
+  PENDING
+  REFUNDED
+}
+
+enum DiscountType {
+  PERCENT
+  FLAT
+}
+
+enum BlockReason {
+  MAINTENANCE
+  TOURNAMENT
+  COACHING
+  PRIVATE_EVENT
+}
+
+model Court {
+  id               String          @id @default(uuid())
+  courtNumber      Int             @unique
+  name             String
+  surfaceType      String          @default("Cushion Acrylic")
+  isIndoor         Boolean         @default(true)
+  basePricePerHour Decimal         @default(400.00) // ₹400 base rate from PRD
+  isActive         Boolean         @default(true)
+  bookings         Booking[]
+  holds            SlotHold[]
+  pricingRules     PricingRule[]
+  scheduleBlocks   ScheduleBlock[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
+
+model Booking {
+  id                  String         @id @default(uuid())
+  courtId             String
+  court               Court          @relation(fields: [courtId], references: [id])
+  startTime           DateTime
+  endTime             DateTime
+  customerName        String
+  customerPhone       String
+  customerEmail       String?
+  source              BookingSource  @default(ONLINE)
+  status              BookingStatus  @default(CONFIRMED)
+  paymentStatus       PaymentStatus  @default(PENDING)
+  totalPrice          Decimal        @default(400.00)
+  discountCode        String?
+  discountAmount      Decimal        @default(0.00)
+  equipmentAddons     Json?          // { paddles: 2, balls: 1, lights: true }
+  notes               String?
+  cancellationReason  String?
+  cancelledAt         DateTime?
+  createdByStaffId    String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([courtId, startTime, endTime])
+  @@index([customerPhone])
+}
+
+model SlotHold {
+  id         String   @id @default(uuid())
+  courtId    String
+  court      Court    @relation(fields: [courtId], references: [id])
+  startTime  DateTime
+  endTime    DateTime
+  sessionId  String   // Client checkout session token
+  expiresAt  DateTime // 5-10 minutes from creation
+  createdAt  DateTime @default(now())
+
+  @@index([courtId, expiresAt])
+}
+
+model PricingRule {
+  id               String    @id @default(uuid())
+  courtId          String?
+  court            Court?    @relation(fields: [courtId], references: [id])
+  dayOfWeek        Int?      // 0=Sunday, 6=Saturday
+  startHour        Int       // e.g. 18 (6 PM)
+  endHour          Int       // e.g. 22 (10 PM)
+  pricePerHour     Decimal
+  isPeak           Boolean   @default(false)
+  isActive         Boolean   @default(true)
+}
+
+model DiscountCode {
+  id               String       @id @default(uuid())
+  code             String       @unique
+  type             DiscountType @default(PERCENT)
+  value            Decimal      // e.g. 15 for 15% or 100 for ₹100 flat
+  minBookingAmount Decimal      @default(0.00)
+  maxUsage         Int?
+  usageCount       Int          @default(0)
+  validFrom        DateTime     @default(now())
+  validTo          DateTime
+  isActive         Boolean      @default(true)
+}
+
+model ScheduleBlock {
+  id         String      @id @default(uuid())
+  courtId    String
+  court      Court       @relation(fields: [courtId], references: [id])
+  startTime  DateTime
+  endTime    DateTime
+  reason     BlockReason @default(MAINTENANCE)
+  notes      String?
+  createdById String?
+  createdAt  DateTime    @default(now())
+}
+
+model PickleballAuditLog {
+  id         String   @id @default(uuid())
+  actorId    String
+  actorRole  String   // 'OWNER', 'STAFF', 'SYSTEM'
+  action     String   // 'CREATE_BOOKING', 'HOLD_SLOT', 'CANCEL_BOOKING', 'UPDATE_PRICE'
+  entityId   String?
+  details    Json
+  createdAt  DateTime @default(now())
+}
+
