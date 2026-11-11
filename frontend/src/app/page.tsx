@@ -7,7 +7,6 @@ import {
   Calendar,
   Clock,
   Phone,
-  User,
   CheckCircle,
   AlertCircle,
   Star,
@@ -18,7 +17,6 @@ import {
   X,
   Search,
   Timer,
-  Zap,
   Lock,
   RefreshCw,
   Menu,
@@ -488,12 +486,6 @@ export default function HomePage() {
             <a href="#gallery" className="hover:text-[#c7f711] transition-colors">
               Gallery
             </a>
-            <a href="#services" className="hover:text-[#c7f711] transition-colors">
-              Services
-            </a>
-            <a href="#pricing" className="hover:text-[#c7f711] transition-colors">
-              Pricing &amp; Plans
-            </a>
             {currentUser ? (
               <Link
                 href="/profile"
@@ -633,20 +625,6 @@ export default function HomePage() {
               className="hover:text-[#c7f711] py-1"
             >
               Gallery
-            </a>
-            <a
-              href="#services"
-              onClick={() => setMobileMenuOpen(false)}
-              className="hover:text-[#c7f711] py-1"
-            >
-              Services
-            </a>
-            <a
-              href="#pricing"
-              onClick={() => setMobileMenuOpen(false)}
-              className="hover:text-[#c7f711] py-1"
-            >
-              Pricing &amp; Plans
             </a>
             {currentUser ? (
               <Link
@@ -1220,190 +1198,12 @@ export default function HomePage() {
       </section>
 
       {/* ========================================================================= */}
-      {/* 4. SECTION — Everything You Need To Play Better Padel (Dark #0D1A2C) */}
+      {/* 4. SECTION — Frequently Asked Questions */}
       {/* ========================================================================= */}
-      <section id="services" className="relative w-full py-24 px-6 sm:px-10 lg:px-12 bg-[#0d1a2c] text-white">
-        <div className="max-w-[1200px] mx-auto">
-          <div className="text-center max-w-[700px] mx-auto mb-16">
-            <span className="inline-block px-4 py-1.5 rounded-full border border-white/20 text-xs text-white/80 mb-4 bg-white/5">
-              Club Facilities
-            </span>
-            <h3 className="text-3xl sm:text-[44px] font-medium text-white tracking-tight leading-[1.15] capitalize">
-              Everything You Need To Book &amp; Play Pickleball
-            </h3>
-            <p className="text-xs sm:text-sm text-white/70 mt-3 font-normal">
-              Three dedicated courts in Gondal, live slot checks, flexible self-service booking, and on-site desk assistance.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="p-8 rounded-[16px] bg-white/5 border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between">
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-[#c7f711]/10 text-[#c7f711] flex items-center justify-center mb-6">
-                  <Zap className="w-6 h-6" />
-                </div>
-                <h4 className="text-xl font-medium text-white mb-2">Court Reservations</h4>
-                <p className="text-xs text-white/70 leading-relaxed">
-                  Reserve 60-minute pickleball court slots online with temporary 10-minute checkout holds and server overlap validation.
-                </p>
-              </div>
-              <a href="#booking" className="text-xs text-[#c7f711] hover:underline pt-6 inline-flex items-center gap-1">
-                <span>Reserve Court</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </a>
-            </div>
-
-            <div className="p-8 rounded-[16px] bg-white/5 border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between">
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-[#c7f711]/10 text-[#c7f711] flex items-center justify-center mb-6">
-                  <User className="w-6 h-6" />
-                </div>
-                <h4 className="text-xl font-medium text-white mb-2">Open Play &amp; Desk Booking</h4>
-                <p className="text-xs text-white/70 leading-relaxed">
-                  Book directly by the hour or arrange walk-in and group play with our reception team during configured operating hours ({arenaOpenTime}–{arenaCloseTime} IST).
-                </p>
-              </div>
-              <a href="#booking" className="text-xs text-[#c7f711] hover:underline pt-6 inline-flex items-center gap-1">
-                <span>View Slots</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </a>
-            </div>
-
-            <div className="p-8 rounded-[16px] bg-white/5 border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between">
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-[#c7f711]/10 text-[#c7f711] flex items-center justify-center mb-6">
-                  <ShieldCheck className="w-6 h-6" />
-                </div>
-                <h4 className="text-xl font-medium text-white mb-2">Pay at Venue &amp; Support</h4>
-                <p className="text-xs text-white/70 leading-relaxed">
-                  Settle court fees at reception via Cash or UPI on arrival, and inquire at the desk regarding equipment availability or membership plans.
-                </p>
-              </div>
-              <a
-                href="#booking"
-                className="text-xs text-[#c7f711] hover:underline pt-6 inline-flex items-center gap-1"
-              >
-                <span>Reserve Court</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 5. SECTION — Plans As Ambitious As Your Goals (Membership Tiers) */}
-      {/* ========================================================================= */}
-      <section id="pricing" className="relative w-full py-24 px-6 sm:px-10 lg:px-12 bg-white">
-        <div className="max-w-[1200px] mx-auto">
-          <div className="text-center max-w-[700px] mx-auto mb-16">
-            <span className="inline-block px-4 py-1.5 rounded-full border border-neutral-200 text-xs text-neutral-600 mb-4 bg-neutral-50 font-medium">
-              Transparent Pricing
-            </span>
-            <h3 className="text-3xl sm:text-[44px] font-medium text-[#0d1a2c] tracking-tight leading-[1.15] capitalize">
-              Plans &amp; Hourly Court Rates
-            </h3>
-            <p className="text-xs sm:text-sm text-neutral-600 mt-3 font-normal">
-              Direct hourly reservations are booked live online. Monthly and annual membership tiers are informational and enrolled in person at the venue desk.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
-            {/* Pickleball Pay-as-you-play */}
-            <div className="p-8 rounded-[16px] bg-white border border-neutral-200 card flex flex-col justify-between">
-              <div>
-                <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full uppercase tracking-wider inline-block mb-2">
-                  Live Court Booking
-                </span>
-                <h4 className="text-2xl font-bold text-[#0d1a2c] mb-1">Open Play Hourly Pass</h4>
-                <p className="text-xs text-neutral-500 mb-6">
-                  Direct hourly reservation for casual rallies, matchplay, and friendly games.
-                </p>
-                <div className="text-4xl font-semibold text-[#0d1a2c] mb-6">
-                  ₹{standardRate} <span className="text-xs font-normal text-neutral-500">/ hour</span>
-                </div>
-                <ul className="space-y-3 text-xs text-neutral-600 border-t border-neutral-100 pt-6">
-                  <li className="flex items-center gap-2">✓ Full 60-minute court reservation</li>
-                  <li className="flex items-center gap-2">✓ 10-minute temporary checkout hold</li>
-                  <li className="flex items-center gap-2">✓ Pay at venue upon arrival (Cash / UPI)</li>
-                  <li className="flex items-center gap-2">✓ Self-service cancellation ≥ 2 hours prior</li>
-                  <li className="flex items-center gap-2">✓ Server-validated court availability</li>
-                </ul>
-              </div>
-              <a href="#booking" className="button-primary w-full text-center mt-8 no-underline">
-                Book Hourly Court
-              </a>
-            </div>
-
-            {/* Monthly Club Member (Featured) */}
-            <div className="p-8 rounded-[16px] bg-[#0d1a2c] text-white flex flex-col justify-between relative shadow-xl border-2 border-[#c7f711]">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#c7f711] text-[#0000ee] text-[10px] font-bold tracking-wider uppercase px-3 py-1 rounded-full">
-                Desk Enrollment
-              </div>
-              <div>
-                <span className="text-xs font-semibold text-[#c7f711] uppercase tracking-wider block mb-2">
-                  Membership Package (Informational)
-                </span>
-                <h4 className="text-2xl font-bold text-white mb-1">Monthly Club Member</h4>
-                <p className="text-xs text-white/70 mb-4">
-                  Informational monthly package for regular players. Terms confirmed and enrolled at reception.
-                </p>
-                <div className="text-4xl font-semibold text-[#c7f711] mb-4">
-                  ₹3,500 <span className="text-xs font-normal text-white/70">/ month</span>
-                </div>
-                <p className="text-[11px] text-white/60 italic mb-4">
-                  * Online membership purchase is disabled; registration takes place in-person at the Boss Pickleball desk.
-                </p>
-                <ul className="space-y-3 text-xs text-white/80 border-t border-white/10 pt-4">
-                  <li className="flex items-center gap-2">• 10 court hours included per month</li>
-                  <li className="flex items-center gap-2">• Scheduled in coordination with venue desk</li>
-                  <li className="flex items-center gap-2">• Full details confirmed during enrollment</li>
-                  <li className="flex items-center gap-2">• Visit venue reception to apply</li>
-                </ul>
-              </div>
-              <a href="#contact" className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-3 rounded-full text-xs font-bold text-center mt-8 no-underline transition-all block">
-                Venue Desk Information
-              </a>
-            </div>
-
-            {/* Annual VIP Champion */}
-            <div className="p-8 rounded-[16px] bg-white border border-neutral-200 card flex flex-col justify-between">
-              <div>
-                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider block mb-2">
-                  Annual Tier (Informational)
-                </span>
-                <h4 className="text-2xl font-bold text-[#0d1a2c] mb-1">Annual VIP Member</h4>
-                <p className="text-xs text-neutral-500 mb-4">
-                  Informational 365-day club tier for regular players. Terms confirmed and enrolled at reception.
-                </p>
-                <div className="text-4xl font-semibold text-[#0d1a2c] mb-4">
-                  ₹24,000 <span className="text-xs font-normal text-neutral-500">/ year</span>
-                </div>
-                <p className="text-[11px] text-neutral-500 italic mb-4">
-                  * Online membership purchase is disabled; registration takes place in-person at the Boss Pickleball desk.
-                </p>
-                <ul className="space-y-3 text-xs text-neutral-600 border-t border-neutral-100 pt-4">
-                  <li className="flex items-center gap-2">• Extended off-peak court access</li>
-                  <li className="flex items-center gap-2">• Coordinated court booking options</li>
-                  <li className="flex items-center gap-2">• Full terms confirmed at reception desk</li>
-                  <li className="flex items-center gap-2">• Visit venue reception to apply</li>
-                </ul>
-              </div>
-              <a href="#contact" className="bg-neutral-900 hover:bg-neutral-800 text-white px-4 py-3 rounded-full text-xs font-bold text-center mt-8 no-underline transition-all block">
-                Venue Desk Information
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 6. SECTION — Frequently Asked Questions */}
-      {/* ========================================================================= */}
-      <section className="relative w-full py-24 px-6 sm:px-10 lg:px-12 bg-neutral-50 border-t border-neutral-200">
+      <section className="relative w-full py-24 px-6 sm:px-10 lg:px-12 bg-white">
         <div className="max-w-[800px] mx-auto">
           <div className="text-center mb-14">
-            <span className="inline-block px-4 py-1.5 rounded-full border border-neutral-200 text-xs text-neutral-600 mb-3 bg-white font-medium">
+            <span className="inline-block px-4 py-1.5 rounded-full border border-neutral-200 text-xs text-neutral-600 mb-3 bg-neutral-50 font-medium">
               Got Questions?
             </span>
             <h3 className="text-3xl sm:text-[34px] font-medium text-[#0d1a2c] tracking-tight leading-[1.2]">
@@ -1443,7 +1243,7 @@ export default function HomePage() {
       </section>
 
       {/* ========================================================================= */}
-      {/* 7. FOOTER (#0D1A2C background) */}
+      {/* 5. FOOTER (#0D1A2C background) */}
       {/* ========================================================================= */}
       <footer id="contact" className="relative w-full py-20 px-6 sm:px-10 lg:px-12 bg-[#0d1a2c] text-white border-t border-white/10">
         <div className="max-w-[1200px] mx-auto grid grid-cols-1 md:grid-cols-4 gap-10 pb-16 border-b border-white/10">
@@ -1474,8 +1274,6 @@ export default function HomePage() {
             <ul className="space-y-2 text-xs text-white/70">
               <li><a href="#booking" className="hover:text-[#c7f711] transition-colors">Book Court</a></li>
               <li><a href="#gallery" className="hover:text-[#c7f711] transition-colors">Action Gallery</a></li>
-              <li><a href="#services" className="hover:text-[#c7f711] transition-colors">Services</a></li>
-              <li><a href="#pricing" className="hover:text-[#c7f711] transition-colors">Pricing &amp; Plans</a></li>
             </ul>
           </div>
 
