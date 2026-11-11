@@ -569,7 +569,7 @@ export default function OwnerAdminPage() {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-extrabold text-sm sm:text-base tracking-tight text-white">
-                  Today's Store Status: {todaySchedule?.isClosed ? "CLOSED TODAY" : "OPEN FOR BOOKINGS"}
+                  Today&apos;s Store Status: {todaySchedule?.isClosed ? "CLOSED TODAY" : "OPEN FOR BOOKINGS"}
                 </span>
                 <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${
                   todaySchedule?.isClosed
