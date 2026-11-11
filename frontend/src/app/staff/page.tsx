@@ -35,10 +35,18 @@ export default function StaffPanelPage() {
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [authChecked, setAuthChecked] = useState<boolean>(false);
 
+  const todayIst = React.useMemo(() => {
+    try {
+      return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
+    } catch {
+      return new Date().toISOString().split("T")[0];
+    }
+  }, []);
+
   // --- Pickleball Quick-Book State ---
   const [courts, setCourts] = useState<any[]>([]);
   const [selectedCourt, setSelectedCourt] = useState("");
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedDate, setSelectedDate] = useState(todayIst);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("07:00");
   const [durationHours, setDurationHours] = useState(1);
   const [customerName, setCustomerName] = useState("");
@@ -57,9 +65,10 @@ export default function StaffPanelPage() {
   // Upcoming Schedule Board State
   const [upcomingBookings, setUpcomingBookings] = useState<any[]>([]);
   const [loadingSchedule, setLoadingSchedule] = useState(false);
+  const [backendError, setBackendError] = useState<string | null>(null);
 
   // Schedule Management Tab State for Staff
-  const [scheduleTargetDate, setScheduleTargetDate] = useState(new Date().toISOString().split("T")[0]);
+  const [scheduleTargetDate, setScheduleTargetDate] = useState(todayIst);
   const [scheduleIsClosed, setScheduleIsClosed] = useState(false);
   const [scheduleClosureReason, setScheduleClosureReason] = useState("");
   const [scheduleOpenTime, setScheduleOpenTime] = useState("06:00");
@@ -75,26 +84,60 @@ export default function StaffPanelPage() {
   const [cancelModalBooking, setCancelModalBooking] = useState<any | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [paymentUpdatingId, setPaymentUpdatingId] = useState<string | null>(null);
 
-  // Load Auth & Courts & Schedules on mount
+  const isStaffAuthorized = Boolean(
+    currentUser && (currentUser.role === "OWNER" || currentUser.role === "EMPLOYEE")
+  );
+
+  // Load Auth on mount
   useEffect(() => {
     checkAuth();
+  }, []);
+
+  // Poll availability and upcoming schedule when authorized
+  useEffect(() => {
     fetchCourts();
     fetchStaffSchedules();
-    fetchStaffUpcomingSchedule();
-  }, [selectedDate]);
+    if (isStaffAuthorized) {
+      fetchStaffUpcomingSchedule();
+    }
+
+    const pollInterval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchCourts();
+        if (isStaffAuthorized) {
+          fetchStaffUpcomingSchedule();
+        }
+      }
+    }, 6000);
+
+    const handleFocusRefresh = () => {
+      if (document.visibilityState === "visible") {
+        fetchCourts();
+        if (isStaffAuthorized) {
+          fetchStaffUpcomingSchedule();
+        }
+      }
+    };
+
+    window.addEventListener("focus", handleFocusRefresh);
+    document.addEventListener("visibilitychange", handleFocusRefresh);
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener("focus", handleFocusRefresh);
+      document.removeEventListener("visibilitychange", handleFocusRefresh);
+    };
+  }, [selectedDate, isStaffAuthorized]);
 
   const checkAuth = async () => {
     try {
-      const res = await fetch("/api/auth/me");
+      const res = await fetch("/api/auth/me", { cache: "no-store" });
       const data = await res.json();
       if (data.authenticated && data.user) {
         setCurrentUser(data.user);
       } else {
-        const stored = localStorage.getItem("boss_current_user");
-        if (stored) {
-          setCurrentUser(JSON.parse(stored));
-        }
+        setCurrentUser(null);
       }
     } catch (e) {
       console.error(e);
@@ -106,16 +149,19 @@ export default function StaffPanelPage() {
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-    } catch (e) { }
+    } catch (e) {}
     localStorage.removeItem("boss_current_user");
     setCurrentUser(null);
+    setUpcomingBookings([]);
+    setLookupResults([]);
   };
 
   const fetchCourts = async () => {
     try {
-      const res = await fetch(`/api/pickleball/availability?date=${selectedDate}`);
-      const data = await res.json();
-      if (data.success && data.courts) {
+      const res = await fetch(`/api/pickleball/availability?date=${selectedDate}`, { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.courts) {
+        setBackendError(null);
         setCourts(data.courts);
         if (!selectedCourt && data.courts.length > 0) {
           setSelectedCourt(data.courts[0].id);
@@ -124,26 +170,38 @@ export default function StaffPanelPage() {
         setSelectedDateClosureReason(data.closureReason || null);
         setSelectedDateOpenTime(data.openTime || "06:00");
         setSelectedDateCloseTime(data.closeTime || "23:00");
+      } else if (!res.ok) {
+        setBackendError(data.error || "Unable to verify live availability from backend.");
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
+      setBackendError("Unable to reach booking server. Availability and schedule may be stale.");
     }
   };
 
   const fetchStaffUpcomingSchedule = async () => {
     setLoadingSchedule(true);
     try {
-      const res = await fetch("/api/pickleball/bookings");
-      const data = await res.json();
-      if (data.success && data.bookings) {
+      const res = await fetch("/api/pickleball/bookings", { cache: "no-store" });
+      if (res.status === 401) {
+        localStorage.removeItem("boss_current_user");
+        setCurrentUser(null);
+        setUpcomingBookings([]);
+        setBackendError("Your session has expired. Please sign in again.");
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.bookings) {
+        setBackendError(null);
         const nowMs = Date.now() - 3600000;
         const upcoming = data.bookings
           .filter((b: any) => b.status !== "CANCELLED" && new Date(b.endTime).getTime() >= nowMs)
           .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
         setUpcomingBookings(upcoming.length > 0 ? upcoming : data.bookings.filter((b: any) => b.status !== "CANCELLED").slice(0, 6));
+      } else if (!res.ok) {
+        setBackendError(data.error || "Unable to load live booking schedule from backend.");
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
+      setBackendError("Unable to reach booking server for live schedule updates.");
     } finally {
       setLoadingSchedule(false);
     }
@@ -151,23 +209,22 @@ export default function StaffPanelPage() {
 
   const fetchStaffSchedules = async () => {
     try {
-      const res = await fetch("/api/admin/schedule");
-      const data = await res.json();
-      if (data.success && data.schedules) {
-        setAllSchedules(data.schedules);
+      const res = await fetch("/api/admin/schedule", { cache: "no-store" });
+      if (res.status === 401) {
+        localStorage.removeItem("boss_current_user");
+        setCurrentUser(null);
+        return;
       }
-    } catch (e) {
-      console.error(e);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.schedules) {
+        setAllSchedules(data.schedules);
+      } else if (!res.ok) {
+        setBackendError((prev) => prev || data.error || "Unable to load arena operating schedules.");
+      }
+    } catch {
+      setBackendError((prev) => prev || "Unable to reach booking server for arena schedules.");
     }
   };
-
-  const todayIst = React.useMemo(() => {
-    try {
-      return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-    } catch {
-      return new Date().toISOString().split("T")[0];
-    }
-  }, []);
 
   const todaySchedule = allSchedules.find((s) => s.date === todayIst) || allSchedules.find((s) => s.date === "DEFAULT") || {
     date: todayIst,
@@ -189,7 +246,6 @@ export default function StaffPanelPage() {
           closureReason: reason,
           openTime: "06:00",
           closeTime: "23:00",
-          staffId: currentUser?.name ? `staff-${currentUser.name}` : "staff-desk",
         }),
       });
       const data = await res.json();
@@ -216,7 +272,6 @@ export default function StaffPanelPage() {
           isClosed: false,
           openTime: "06:00",
           closeTime: "23:00",
-          staffId: currentUser?.name ? `staff-${currentUser.name}` : "staff-desk",
         }),
       });
       const data = await res.json();
@@ -246,7 +301,6 @@ export default function StaffPanelPage() {
           closureReason: scheduleIsClosed ? scheduleClosureReason || "Holiday / Maintenance" : undefined,
           openTime: scheduleOpenTime,
           closeTime: scheduleCloseTime,
-          staffId: currentUser?.name ? `staff-${currentUser.name}` : "staff-registrar",
         }),
       });
       const data = await res.json();
@@ -270,8 +324,8 @@ export default function StaffPanelPage() {
     setBookLoading(true);
     setBookMessage(null);
 
-    const [hour, min] = selectedTimeSlot.split(":").map(Number);
-    const startObj = new Date(`${selectedDate}T${selectedTimeSlot}:00`);
+    // Anchor selected date and slot strictly in Asia/Kolkata (+05:30 IST)
+    const startObj = new Date(`${selectedDate}T${selectedTimeSlot}:00+05:30`);
     const endObj = new Date(startObj.getTime() + durationHours * 60 * 60 * 1000);
 
     try {
@@ -286,7 +340,6 @@ export default function StaffPanelPage() {
           customerPhone,
           source: bookingSource,
           paymentStatus,
-          staffId: currentUser?.name ? `staff-${currentUser.name}` : "staff-registrar",
         }),
       });
 
@@ -296,7 +349,6 @@ export default function StaffPanelPage() {
           type: "success",
           text: `Booked! Booking ID: #${data.booking.id.slice(-6).toUpperCase()} | Total: ₹${data.booking.totalPrice}`,
         });
-        // reset form
         setCustomerName("");
         setCustomerPhone("");
         fetchCourts();
@@ -311,23 +363,71 @@ export default function StaffPanelPage() {
     }
   };
 
+  // Record counter payment for PAY_AT_VENUE / PENDING bookings
+  const handleRecordPayment = async (bookingId: string, status: "CASH_COUNTER" | "UPI_COUNTER") => {
+    setPaymentUpdatingId(bookingId);
+    try {
+      const res = await fetch("/api/pickleball/bookings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId, paymentStatus: status }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchStaffUpcomingSchedule();
+        if (searchPhone) {
+          handleLookup({ preventDefault: () => {} } as any);
+        }
+      } else {
+        alert(data.error || "Failed to record payment");
+      }
+    } catch {
+      alert("Network error recording payment");
+    } finally {
+      setPaymentUpdatingId(null);
+    }
+  };
+
   // Lookup Phone
   const handleLookup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchPhone) return;
     setLookupLoading(true);
     try {
-      const res = await fetch(`/api/pickleball/bookings?phone=${encodeURIComponent(searchPhone)}`);
-      const data = await res.json();
-      if (data.success) {
-        setLookupResults(data.bookings || []);
+      const res = await fetch(`/api/pickleball/bookings?phone=${encodeURIComponent(searchPhone)}`, { cache: "no-store" });
+      if (res.status === 401) {
+        localStorage.removeItem("boss_current_user");
+        setCurrentUser(null);
+        setLookupResults([]);
+        setBackendError("Your session has expired. Please sign in again.");
+        return;
       }
-    } catch (err) {
-      console.error(err);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        setLookupResults(data.bookings || []);
+      } else if (!res.ok) {
+        setBackendError(data.error || "Unable to look up bookings right now.");
+      }
+    } catch {
+      setBackendError("Unable to reach booking server for phone lookup.");
     } finally {
       setLookupLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!cancelModalBooking) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setCancelModalBooking(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [cancelModalBooking]);
+
+  const selectedCourtObj = courts.find((c) => c.id === selectedCourt) || courts[0];
+  const selectedCourtRate = selectedCourtObj?.basePricePerHour ?? 400;
 
   // Cancel Booking
   const handleStaffCancel = async () => {
@@ -348,7 +448,6 @@ export default function StaffPanelPage() {
         setCancelReason("");
         fetchStaffUpcomingSchedule();
         fetchCourts();
-        // refresh lookup
         if (searchPhone) {
           handleLookup({ preventDefault: () => { } } as any);
         }
@@ -366,7 +465,7 @@ export default function StaffPanelPage() {
     <div className="min-h-screen bg-[#070b10] text-[#f0f4f8] antialiased selection:bg-[#c7f711] selection:text-black">
       {/* Top Header / Staff Bar */}
       <header className="border-b border-white/10 bg-[#0d141f]/90 backdrop-blur sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 min-h-16 py-2.5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full overflow-hidden border border-[#c7f711] shadow-[0_0_15px_rgba(199,247,17,0.3)] bg-white">
               <Image
@@ -394,10 +493,12 @@ export default function StaffPanelPage() {
                 <span
                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${currentUser.role === "OWNER"
                       ? "bg-purple-500 text-white"
-                      : "bg-emerald-400 text-black"
+                      : currentUser.role === "EMPLOYEE"
+                      ? "bg-emerald-400 text-black"
+                      : "bg-slate-600 text-white"
                     }`}
                 >
-                  {currentUser.role === "OWNER" ? "👑 Owner" : "🛡️ Employee"}
+                  {currentUser.role === "OWNER" ? "👑 Owner" : currentUser.role === "EMPLOYEE" ? "🛡️ Employee" : "👤 Customer"}
                 </span>
                 <span className="text-xs text-white/90">{currentUser.name}</span>
                 <button
@@ -423,19 +524,72 @@ export default function StaffPanelPage() {
             >
               Customer Website ↗
             </Link>
-            <Link
-              href="/admin"
-              className="text-xs bg-white/10 hover:bg-white/20 text-white font-medium px-3.5 py-1.5 rounded-lg border border-white/20 transition-all flex items-center gap-1.5"
-            >
-              <span>Owner Admin</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            {currentUser?.role === "OWNER" && (
+              <Link
+                href="/admin"
+                className="text-xs bg-white/10 hover:bg-white/20 text-white font-medium px-3.5 py-1.5 rounded-lg border border-white/20 transition-all flex items-center gap-1.5"
+              >
+                <span>Owner Admin</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            )}
           </div>
         </div>
       </header>
 
       {/* Main Container */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {!authChecked ? (
+          <div className="p-16 text-center text-white/50 text-xs">
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3 text-[#c7f711]" />
+            Verifying staff credentials...
+          </div>
+        ) : !isStaffAuthorized ? (
+          <div className="max-w-lg mx-auto my-12 p-8 rounded-3xl bg-[#0d141f] border border-white/10 text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-300 flex items-center justify-center mx-auto">
+              <Lock className="w-6 h-6" />
+            </div>
+            <h2 className="text-xl font-bold text-white">Staff Authorization Required</h2>
+            <p className="text-xs text-white/60 leading-relaxed">
+              {currentUser
+                ? `Signed in as ${currentUser.name} (${currentUser.role}). The Staff Desk is restricted to authorized arena staff and owners.`
+                : "Please sign in with an authorized employee or owner account to access the Staff Registrar Desk."}
+            </p>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              {!currentUser && (
+                <button
+                  type="button"
+                  onClick={() => setShowLoginModal(true)}
+                  className="px-5 py-2.5 rounded-xl bg-[#c7f711] hover:bg-[#b0dc0d] text-black font-extrabold text-xs transition-all"
+                >
+                  Staff Sign In
+                </button>
+              )}
+              <Link
+                href="/"
+                className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all"
+              >
+                Return to Booking Site
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <>
+        {backendError && (
+          <div className="mb-4 p-4 rounded-2xl bg-red-500/15 border border-red-500/40 text-xs text-red-200 flex items-center justify-between gap-3">
+            <span>{backendError}</span>
+            <button
+              type="button"
+              onClick={() => {
+                fetchCourts();
+                fetchStaffUpcomingSchedule();
+              }}
+              className="px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 font-semibold text-white shrink-0"
+            >
+              Retry Sync
+            </button>
+          </div>
+        )}
         {/* Quick Store Control & Emergency Daily Closure Banner */}
         <div className={`p-4 sm:p-5 rounded-3xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all shadow-xl ${
           todaySchedule?.isClosed
@@ -602,14 +756,23 @@ export default function StaffPanelPage() {
                     const start = new Date(b.startTime);
                     const end = new Date(b.endTime);
                     const dateStr = start.toLocaleDateString("en-IN", {
+                      timeZone: "Asia/Kolkata",
                       weekday: "short",
                       month: "short",
                       day: "numeric",
                     });
-                    const timeStr = `${start.toLocaleTimeString([], {
+                    const timeStr = `${start.toLocaleTimeString("en-IN", {
+                      timeZone: "Asia/Kolkata",
                       hour: "2-digit",
                       minute: "2-digit",
-                    })} - ${end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+                      hour12: true,
+                    })} - ${end.toLocaleTimeString("en-IN", {
+                      timeZone: "Asia/Kolkata",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: true,
+                    })}`;
+                    const isPendingPayment = b.paymentStatus === "PAY_AT_VENUE" || b.paymentStatus === "PENDING";
 
                     return (
                       <div
@@ -636,16 +799,37 @@ export default function StaffPanelPage() {
                             <span>{dateStr} • {timeStr}</span>
                           </div>
                           <span
-                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase ${b.paymentStatus === "PAID_ONLINE"
+                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase ${b.paymentStatus === "PAID_ONLINE" || b.paymentStatus === "CASH_COUNTER"
                                 ? "bg-emerald-500/20 text-emerald-400"
                                 : b.paymentStatus === "UPI_COUNTER"
                                   ? "bg-cyan-500/20 text-cyan-400"
                                   : "bg-amber-500/20 text-amber-400"
                               }`}
                           >
-                            {b.paymentStatus?.replace("_", " ")}
+                            {b.paymentStatus?.replace(/_/g, " ")}
                           </span>
                         </div>
+
+                        {isPendingPayment && (
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              type="button"
+                              disabled={paymentUpdatingId === b.id}
+                              onClick={() => handleRecordPayment(b.id, "CASH_COUNTER")}
+                              className="flex-1 text-[10px] font-bold py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition-all"
+                            >
+                              Collect Cash
+                            </button>
+                            <button
+                              type="button"
+                              disabled={paymentUpdatingId === b.id}
+                              onClick={() => handleRecordPayment(b.id, "UPI_COUNTER")}
+                              className="flex-1 text-[10px] font-bold py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 transition-all"
+                            >
+                              Collect UPI
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -669,12 +853,12 @@ export default function StaffPanelPage() {
                       </span>
                     </h2>
                     <p className="text-xs text-white/60">
-                      Instant slot assignment with atomic collision prevention and zero double-booking guarantee.
+                      Counter &amp; phone slot assignment with server-side overlap validation.
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs text-white/50 block">Standard Rate</span>
-                    <span className="text-lg font-bold text-[#c7f711]">₹400 / hr</span>
+                    <span className="text-xs text-white/50 block">Court Base Rate</span>
+                    <span className="text-lg font-bold text-[#c7f711]">₹{selectedCourtRate} / hr</span>
                   </div>
                 </div>
 
@@ -918,14 +1102,14 @@ export default function StaffPanelPage() {
                     </div>
                   </div>
 
-                  {/* 5. Official Equipment Provided */}
+                  {/* 5. Venue Equipment Desk Policy */}
                   <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-wrap items-center justify-between gap-4">
                     <div className="text-xs text-white/70">
-                      <span className="font-semibold text-white block">Official Tournament Equipment Included</span>
-                      Official JOOLA pro carbon fiber paddles &amp; optic tournament balls provided complimentary by club reception.
+                      <span className="font-semibold text-white block">Venue Equipment &amp; Surge Check</span>
+                      Final booking total (including any active peak surge) is calculated server-side. Confirm paddle/ball availability at reception.
                     </div>
                     <span className="text-xs font-bold text-[#c7f711] bg-[#c7f711]/10 border border-[#c7f711]/30 px-3 py-1.5 rounded-full">
-                      ✓ Included Free
+                      Desk Assisted
                     </span>
                   </div>
 
@@ -943,7 +1127,7 @@ export default function StaffPanelPage() {
                     ) : (
                       <>
                         <CheckCircle className="w-5 h-5" />
-                        <span>Confirm &amp; Issue Receipt (₹{durationHours * 400})</span>
+                        <span>Confirm &amp; Issue Receipt (Base Est. ₹{durationHours * selectedCourtRate})</span>
                       </>
                     )}
                   </button>
@@ -960,7 +1144,7 @@ export default function StaffPanelPage() {
                   <ul className="text-xs text-white/70 space-y-2.5">
                     <li className="flex items-start gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#c7f711] mt-1.5 flex-shrink-0" />
-                      <span>Every booking enforces atomic interval checks (`start &lt; endB &amp;&amp; end &gt; startB`).</span>
+                      <span>Every booking validates interval overlap on the server (`start &lt; endB &amp;&amp; end &gt; startB`).</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#c7f711] mt-1.5 flex-shrink-0" />
@@ -1100,7 +1284,7 @@ export default function StaffPanelPage() {
                       className="w-full bg-[#161f2e] border border-amber-500/40 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-amber-400"
                     />
                     <div className="flex flex-wrap gap-2 pt-1">
-                      {["Diwali Festive Holiday", "Monsoon Maintenance", "National Championship", "New Year Eve"].map((preset) => (
+                      {["Diwali Festive Holiday", "Monsoon Maintenance", "Special Tournament", "New Year Eve"].map((preset) => (
                         <button
                           key={preset}
                           type="button"
@@ -1295,16 +1479,18 @@ export default function StaffPanelPage() {
                         <td className="py-3.5 px-4 text-white/90 font-medium">{b.courtName}</td>
                         <td className="py-3.5 px-4 text-white/70">
                           {new Date(b.startTime).toLocaleString("en-IN", {
+                            timeZone: "Asia/Kolkata",
                             month: "short",
                             day: "numeric",
                             hour: "2-digit",
                             minute: "2-digit",
-                          })}
+                            hour12: true,
+                          })} IST
                         </td>
                         <td className="py-3.5 px-4 font-bold text-[#c7f711]">₹{b.totalPrice}</td>
                         <td className="py-3.5 px-4">
                           <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-white/10 text-white/80">
-                            {b.paymentStatus.replace("_", " ")}
+                            {b.paymentStatus.replace(/_/g, " ")}
                           </span>
                         </td>
                         <td className="py-3.5 px-4">
@@ -1319,7 +1505,27 @@ export default function StaffPanelPage() {
                             {b.status}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 text-right">
+                        <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
+                          {b.status === "CONFIRMED" && (b.paymentStatus === "PAY_AT_VENUE" || b.paymentStatus === "PENDING") && (
+                            <>
+                              <button
+                                type="button"
+                                disabled={paymentUpdatingId === b.id}
+                                onClick={() => handleRecordPayment(b.id, "CASH_COUNTER")}
+                                className="text-[11px] bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 px-2.5 py-1.5 rounded-xl font-medium transition-all"
+                              >
+                                Collect Cash
+                              </button>
+                              <button
+                                type="button"
+                                disabled={paymentUpdatingId === b.id}
+                                onClick={() => handleRecordPayment(b.id, "UPI_COUNTER")}
+                                className="text-[11px] bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 px-2.5 py-1.5 rounded-xl font-medium transition-all"
+                              >
+                                Collect UPI
+                              </button>
+                            </>
+                          )}
                           {b.status === "CONFIRMED" ? (
                             <button
                               onClick={() => setCancelModalBooking(b)}
@@ -1348,11 +1554,16 @@ export default function StaffPanelPage() {
 
             {/* Cancel Modal */}
             {cancelModalBooking && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="staff-cancel-modal-title"
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+              >
                 <div className="bg-[#0d141f] border border-white/15 rounded-3xl p-6 sm:p-8 max-w-md w-full">
                   <div className="flex items-center gap-3 text-red-400 mb-4">
                     <ShieldAlert className="w-6 h-6" />
-                    <h3 className="font-bold text-lg text-white">Confirm Desk Cancellation</h3>
+                    <h3 id="staff-cancel-modal-title" className="font-bold text-lg text-white">Confirm Desk Cancellation</h3>
                   </div>
                   <p className="text-xs text-white/70 mb-4">
                     Cancelling booking <strong className="text-white">#{cancelModalBooking.id.slice(-6).toUpperCase()}</strong> for {cancelModalBooking.customerName}.
@@ -1391,6 +1602,8 @@ export default function StaffPanelPage() {
             )}
           </div>
         )}
+          </>
+        )}
       </div>
 
       <LoginModal
@@ -1398,6 +1611,8 @@ export default function StaffPanelPage() {
         onClose={() => setShowLoginModal(false)}
         onLoginSuccess={(user) => {
           setCurrentUser(user);
+          fetchCourts();
+          fetchStaffUpcomingSchedule();
         }}
       />
     </div>

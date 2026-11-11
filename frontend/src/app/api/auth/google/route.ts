@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authDb } from "@/lib/auth/authDb";
+import { setSessionCookie } from "@/lib/auth/serverAuth";
+import {
+  callDjangoApi,
+  getBackendMisconfiguredResponse,
+  isDjangoBackendConfigured,
+  isLocalJsonFallbackDisabled,
+  toProxyJsonResponse,
+} from "@/lib/backend/djangoClient";
 
 export const dynamic = "force-dynamic";
 
@@ -117,7 +125,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Upsert user in Auth database
+    if (isDjangoBackendConfigured()) {
+      const upstream = await callDjangoApi({
+        path: "/api/auth/google/",
+        method: "POST",
+        body: { email, name, avatar, googleId },
+      });
+
+      if (!upstream.ok || !upstream.data?.user) {
+        return toProxyJsonResponse(upstream);
+      }
+
+      const response = NextResponse.json(
+        {
+          ...upstream.data,
+          message: `Welcome, ${upstream.data.user.name}! Signed in via Google.`,
+        },
+        { status: upstream.status }
+      );
+      setSessionCookie(response, upstream.data.user, req);
+      return response;
+    }
+
+    if (isLocalJsonFallbackDisabled()) {
+      return getBackendMisconfiguredResponse();
+    }
+
+    // Upsert user in local fallback Auth database (dev/test only)
     const result = authDb.findOrCreateGoogleUser({
       email,
       name,
@@ -134,18 +168,8 @@ export async function POST(req: NextRequest) {
       message: `Welcome, ${result.user.name}! Signed in via Google.`,
     });
 
-    // Set cookie for session persistence
-    response.cookies.set("boss_session", JSON.stringify({
-      id: result.user.id,
-      name: result.user.name,
-      role: result.user.role,
-      avatar: result.user.avatar,
-      token: result.token,
-    }), {
-      path: "/",
-      httpOnly: false,
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    });
+    // Set HMAC-signed httpOnly session cookie
+    setSessionCookie(response, result.user, req);
 
     return response;
   } catch (error: any) {

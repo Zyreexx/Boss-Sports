@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickleballDb } from "@/lib/db/pickleballDb";
 import { getAuthenticatedActor } from "@/lib/auth/serverAuth";
+import {
+  callDjangoApi,
+  getBackendMisconfiguredResponse,
+  isDjangoBackendConfigured,
+  isLocalJsonFallbackDisabled,
+  toProxyJsonResponse,
+} from "@/lib/backend/djangoClient";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +75,33 @@ export async function POST(req: NextRequest) {
     } else {
       // Public online bookings CANNOT forge 'PAID_ONLINE' without verified payment gateway signature
       sanitizedPaymentStatus = "PAY_AT_VENUE";
+    }
+
+    if (isDjangoBackendConfigured()) {
+      const upstream = await callDjangoApi({
+        path: "/api/pickleball/book/",
+        method: "POST",
+        body: {
+          courtId,
+          startTime,
+          endTime,
+          customerName,
+          customerPhone,
+          customerEmail,
+          source: sanitizedSource,
+          paymentStatus: sanitizedPaymentStatus,
+          discountCode,
+          equipmentAddons,
+          notes,
+          sessionId,
+        },
+        actor: sessionActor,
+      });
+      return toProxyJsonResponse(upstream);
+    }
+
+    if (isLocalJsonFallbackDisabled()) {
+      return getBackendMisconfiguredResponse();
     }
 
     const result = pickleballDb.createBooking({

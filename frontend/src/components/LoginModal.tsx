@@ -79,7 +79,15 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
         console.error("Google GIS init error:", e);
       }
     }
-  }, [isOpen, googleClientId]);
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, googleClientId, onClose]);
 
   if (!isOpen) return null;
 
@@ -172,11 +180,18 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md antialiased animate-in fade-in duration-200">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="login-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md antialiased animate-in fade-in duration-200"
+    >
       <div className="bg-[#0d141f] border border-white/15 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-white">
         {/* Close Button */}
         <button
+          type="button"
           onClick={onClose}
+          aria-label="Close login modal"
           className="absolute top-5 right-5 text-white/50 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors"
         >
           <X className="w-5 h-5" />
@@ -188,7 +203,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
             <Key className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-white tracking-tight">Portal Access Login</h3>
+            <h3 id="login-modal-title" className="text-lg font-bold text-white tracking-tight">Portal Access Login</h3>
             <p className="text-xs text-white/50">Google Sign-in &amp; Role Verification</p>
           </div>
         </div>
@@ -250,15 +265,16 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
           className="space-y-3.5"
         >
           <div>
-            <label className="text-xs font-semibold text-white/70 block mb-1">
+            <label htmlFor="login-identifier" className="text-xs font-semibold text-white/70 block mb-1">
               Email or Mobile Phone
             </label>
             <div className="relative">
               <User className="w-4 h-4 text-white/40 absolute left-3.5 top-3" />
               <input
+                id="login-identifier"
                 type="text"
                 required
-                placeholder="e.g. owner@boss.com or anand@example.com"
+                placeholder="Enter your account email or phone"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 className="w-full bg-white/5 border border-white/15 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#c7f711]"
@@ -267,12 +283,13 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-white/70 block mb-1">
+            <label htmlFor="login-password" className="text-xs font-semibold text-white/70 block mb-1">
               Password
             </label>
             <div className="relative">
               <Lock className="w-4 h-4 text-white/40 absolute left-3.5 top-3" />
               <input
+                id="login-password"
                 type="password"
                 required
                 placeholder="Enter password..."

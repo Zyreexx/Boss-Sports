@@ -1,18 +1,11 @@
 #!/usr/bin/env bash
-# Exit on error
 set -o errexit
 
-# Install python dependencies
 pip install -r requirements.txt
-
-# Ensure start script has execute permissions
 chmod +x ./start.sh
 
-# Collect static files for Django Admin
 python manage.py collectstatic --no-input
+python manage.py migrate --no-input
 
-# Run database migrations
-python manage.py migrate
-
-# Seed initial accounts (Owner, Staff, Customer), Courts, and Gallery loops
-python seed.py
+# Only seed empty structural tables (courts, default schedule, pricing config); never overwrites production accounts
+python seed.py --structural-only

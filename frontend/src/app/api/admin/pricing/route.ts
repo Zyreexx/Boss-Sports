@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickleballDb } from "@/lib/db/pickleballDb";
 import { enforceRole } from "@/lib/auth/serverAuth";
+import {
+  callDjangoApi,
+  getBackendMisconfiguredResponse,
+  isDjangoBackendConfigured,
+  isLocalJsonFallbackDisabled,
+  toProxyJsonResponse,
+} from "@/lib/backend/djangoClient";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +16,19 @@ export async function GET(req: NextRequest) {
     const auth = enforceRole(req, ["OWNER"]);
     if (!auth.authorized) {
       return auth.response!;
+    }
+
+    if (isDjangoBackendConfigured()) {
+      const upstream = await callDjangoApi({
+        path: "/api/admin/pricing/",
+        method: "GET",
+        actor: auth.actor,
+      });
+      return toProxyJsonResponse(upstream);
+    }
+
+    if (isLocalJsonFallbackDisabled()) {
+      return getBackendMisconfiguredResponse();
     }
 
     const config = pickleballDb.getPricingConfig();
@@ -34,14 +54,38 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       basePrice,
+      basePricePerHour,
       peakSurgePrice,
+      peakSurgePricePerHour,
       peakHours,
       isPeakSurgeActive,
     } = body;
 
+    const resolvedBase = basePricePerHour ?? (basePrice ? Number(basePrice) : undefined);
+    const resolvedPeak = peakSurgePricePerHour ?? (peakSurgePrice ? Number(peakSurgePrice) : undefined);
+
+    if (isDjangoBackendConfigured()) {
+      const upstream = await callDjangoApi({
+        path: "/api/admin/pricing/",
+        method: "POST",
+        body: {
+          ...(resolvedBase !== undefined ? { basePricePerHour: resolvedBase } : {}),
+          ...(resolvedPeak !== undefined ? { peakSurgePricePerHour: resolvedPeak } : {}),
+          ...(peakHours !== undefined ? { peakHours } : {}),
+          ...(isPeakSurgeActive !== undefined ? { isPeakSurgeActive } : {}),
+        },
+        actor: auth.actor,
+      });
+      return toProxyJsonResponse(upstream);
+    }
+
+    if (isLocalJsonFallbackDisabled()) {
+      return getBackendMisconfiguredResponse();
+    }
+
     const result = pickleballDb.updatePricingConfig({
-      basePricePerHour: basePrice ? Number(basePrice) : undefined,
-      peakSurgePricePerHour: peakSurgePrice ? Number(peakSurgePrice) : undefined,
+      basePricePerHour: resolvedBase !== undefined ? Number(resolvedBase) : undefined,
+      peakSurgePricePerHour: resolvedPeak !== undefined ? Number(resolvedPeak) : undefined,
       peakHours,
       isPeakSurgeActive,
       staffId: auth.actor.id,

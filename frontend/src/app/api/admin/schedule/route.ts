@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickleballDb } from "@/lib/db/pickleballDb";
-import { enforceRole } from "@/lib/auth/serverAuth";
+import { enforceRole, getAuthenticatedActor } from "@/lib/auth/serverAuth";
+import {
+  callDjangoApi,
+  getBackendMisconfiguredResponse,
+  isDjangoBackendConfigured,
+  isLocalJsonFallbackDisabled,
+  toProxyJsonResponse,
+} from "@/lib/backend/djangoClient";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +15,21 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const date = searchParams.get("date");
+
+    if (isDjangoBackendConfigured()) {
+      const actor = getAuthenticatedActor(req);
+      const q = date ? `?date=${encodeURIComponent(date)}` : "";
+      const upstream = await callDjangoApi({
+        path: `/api/admin/schedule/${q}`,
+        method: "GET",
+        actor,
+      });
+      return toProxyJsonResponse(upstream);
+    }
+
+    if (isLocalJsonFallbackDisabled()) {
+      return getBackendMisconfiguredResponse();
+    }
 
     if (date) {
       const schedule = pickleballDb.getArenaSchedule(date);
@@ -51,6 +73,26 @@ export async function POST(req: NextRequest) {
         { success: false, error: "Date parameter is required (e.g. YYYY-MM-DD or DEFAULT)" },
         { status: 400 }
       );
+    }
+
+    if (isDjangoBackendConfigured()) {
+      const upstream = await callDjangoApi({
+        path: "/api/admin/schedule/",
+        method: "POST",
+        body: {
+          date,
+          isClosed: Boolean(isClosed),
+          closureReason: closureReason || undefined,
+          openTime: openTime || "06:00",
+          closeTime: closeTime || "23:00",
+        },
+        actor: auth.actor,
+      });
+      return toProxyJsonResponse(upstream);
+    }
+
+    if (isLocalJsonFallbackDisabled()) {
+      return getBackendMisconfiguredResponse();
     }
 
     const result = pickleballDb.setArenaSchedule({

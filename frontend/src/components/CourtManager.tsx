@@ -34,6 +34,7 @@ export default function CourtManager({
   userRole?: string;
   onCourtChanged?: () => void;
 }) {
+  const isOwner = userRole === "OWNER";
   const [courts, setCourts] = useState<CourtItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -43,7 +44,7 @@ export default function CourtManager({
   const [newCourtName, setNewCourtName] = useState("");
   const [newCourtPrice, setNewCourtPrice] = useState(400);
   const [newCourtIsIndoor, setNewCourtIsIndoor] = useState(true);
-  const [newCourtSurface, setNewCourtSurface] = useState("Tournament Cushion Acrylic");
+  const [newCourtSurface, setNewCourtSurface] = useState("Pickleball Court Surface");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Edit Court Modal
@@ -56,9 +57,13 @@ export default function CourtManager({
   const fetchCourts = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/pickleball/courts?all=true");
-      const data = await res.json();
-      if (data.success && Array.isArray(data.courts)) {
+      const res = await fetch("/api/pickleball/courts?all=true", { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        setMsg({ type: "error", text: data.error || "Failed to load courts from database" });
+        return;
+      }
+      if (Array.isArray(data.courts)) {
         setCourts(data.courts);
       }
     } catch (err: any) {
@@ -214,7 +219,9 @@ export default function CourtManager({
             </span>
           </div>
           <p className="text-xs text-neutral-500">
-            Add new pickleball courts (Court 4, Court 5...), configure pricing, and toggle live booking availability.
+            {isOwner
+              ? "Add new pickleball courts, configure pricing, and toggle booking availability."
+              : "Toggle court maintenance availability. Court creation, deletion, and pricing require owner access."}
           </p>
         </div>
 
@@ -223,23 +230,26 @@ export default function CourtManager({
             type="button"
             onClick={fetchCourts}
             disabled={loading}
+            aria-label="Refresh courts list"
             className="p-2.5 rounded-xl border border-neutral-200 hover:bg-neutral-50 text-neutral-700 transition"
             title="Refresh Courts"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setShowAddForm(!showAddForm);
-              if (!newCourtName) setNewCourtName(`Court ${nextCourtNum}`);
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0d1a2c] text-white hover:bg-[#1a2d47] text-xs font-bold transition shadow-sm"
-          >
-            <Plus className="w-4 h-4 text-[#c7f711]" />
-            <span>{showAddForm ? "Close Form" : "Add New Court"}</span>
-          </button>
+          {isOwner && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowAddForm(!showAddForm);
+                if (!newCourtName) setNewCourtName(`Court ${nextCourtNum}`);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0d1a2c] text-white hover:bg-[#1a2d47] text-xs font-bold transition shadow-sm"
+            >
+              <Plus className="w-4 h-4 text-[#c7f711]" />
+              <span>{showAddForm ? "Close Form" : "Add New Court"}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -266,8 +276,8 @@ export default function CourtManager({
         </div>
       )}
 
-      {/* Inline Add Court Form */}
-      {showAddForm && (
+      {/* Inline Add Court Form (Owner Only) */}
+      {isOwner && showAddForm && (
         <form
           onSubmit={handleAddCourt}
           className="bg-gradient-to-br from-neutral-50 to-white p-6 rounded-2xl border-2 border-[#00A852]/30 shadow-md space-y-4 animate-in fade-in slide-in-from-top-3"
@@ -324,8 +334,8 @@ export default function CourtManager({
                 onChange={(e) => setNewCourtIsIndoor(e.target.value === "indoor")}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-[#00A852]"
               >
-                <option value="indoor">Indoor (Climate-controlled)</option>
-                <option value="outdoor">Outdoor (All-weather)</option>
+                <option value="indoor">Indoor Court</option>
+                <option value="outdoor">Outdoor Court</option>
               </select>
             </div>
 
@@ -337,7 +347,7 @@ export default function CourtManager({
                 type="text"
                 value={newCourtSurface}
                 onChange={(e) => setNewCourtSurface(e.target.value)}
-                placeholder="Tournament Cushion Acrylic"
+                placeholder="Pickleball Court Surface"
                 className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-[#00A852]"
               />
             </div>
@@ -430,40 +440,50 @@ export default function CourtManager({
                 <span>{court.isActive ? "Pause Court" : "Activate"}</span>
               </button>
 
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleOpenEdit(court)}
-                  className="p-1.5 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-100 transition"
-                  title="Edit Court"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteCourt(court)}
-                  className="p-1.5 rounded-lg border border-neutral-200 text-neutral-400 hover:text-rose-600 hover:border-rose-200 transition"
-                  title="Delete Court"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              {isOwner && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEdit(court)}
+                    aria-label={`Edit ${court.name}`}
+                    className="p-1.5 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-100 transition"
+                    title="Edit Court"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteCourt(court)}
+                    aria-label={`Delete ${court.name}`}
+                    className="p-1.5 rounded-lg border border-neutral-200 text-neutral-400 hover:text-rose-600 hover:border-rose-200 transition"
+                    title="Delete Court"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Edit Court Modal */}
-      {editingCourt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+      {/* Edit Court Modal (Owner Only) */}
+      {isOwner && editingCourt && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-court-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in"
+        >
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-neutral-200 space-y-4">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
-              <h3 className="font-bold text-sm text-neutral-900">
+              <h3 id="edit-court-modal-title" className="font-bold text-sm text-neutral-900">
                 Edit {editingCourt.name}
               </h3>
               <button
                 type="button"
                 onClick={() => setEditingCourt(null)}
+                aria-label="Close edit court dialog"
                 className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-500"
               >
                 <X className="w-4 h-4" />

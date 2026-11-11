@@ -37,6 +37,15 @@ export default function OwnerAdminPage() {
   // Report Data
   const [reportData, setReportData] = useState<any | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+
+  const todayIst = React.useMemo(() => {
+    try {
+      return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
+    } catch {
+      return new Date().toISOString().split("T")[0];
+    }
+  }, []);
 
   // Upcoming Schedule Data
   const [upcomingBookings, setUpcomingBookings] = useState<any[]>([]);
@@ -51,7 +60,7 @@ export default function OwnerAdminPage() {
   const [pricingMsg, setPricingMsg] = useState<string | null>(null);
 
   // Schedule & Holiday form
-  const [scheduleDate, setScheduleDate] = useState(new Date().toISOString().split("T")[0]);
+  const [scheduleDate, setScheduleDate] = useState(todayIst);
   const [scheduleIsClosed, setScheduleIsClosed] = useState(false);
   const [scheduleClosureReason, setScheduleClosureReason] = useState("");
   const [scheduleOpenTime, setScheduleOpenTime] = useState("06:00");
@@ -62,33 +71,61 @@ export default function OwnerAdminPage() {
 
   // Court Block form
   const [blockCourtId, setBlockCourtId] = useState("");
-  const [blockDate, setBlockDate] = useState(new Date().toISOString().split("T")[0]);
+  const [blockDate, setBlockDate] = useState(todayIst);
   const [blockStartTime, setBlockStartTime] = useState("10:00");
   const [blockEndTime, setBlockEndTime] = useState("12:00");
-  const [blockReason, setBlockReason] = useState<"MAINTENANCE" | "TOURNAMENT" | "COACHING">("MAINTENANCE");
+  const [blockReason, setBlockReason] = useState<"MAINTENANCE" | "TOURNAMENT" | "COACHING" | "PRIVATE_EVENT">("MAINTENANCE");
   const [blockNotes, setBlockNotes] = useState("");
   const [blockMsg, setBlockMsg] = useState<string | null>(null);
 
+  const isOwnerAuthorized = Boolean(currentUser && currentUser.role === "OWNER");
+
   useEffect(() => {
     checkAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!isOwnerAuthorized) return;
+
     fetchReports();
     fetchCourts();
     fetchPricingConfig();
     fetchSchedules();
     fetchAdminBookings();
-  }, []);
+
+    const pollInterval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchReports();
+        fetchAdminBookings();
+        fetchSchedules();
+      }
+    }, 8000);
+
+    const handleFocusRefresh = () => {
+      if (document.visibilityState === "visible") {
+        fetchReports();
+        fetchAdminBookings();
+        fetchSchedules();
+      }
+    };
+
+    window.addEventListener("focus", handleFocusRefresh);
+    document.addEventListener("visibilitychange", handleFocusRefresh);
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener("focus", handleFocusRefresh);
+      document.removeEventListener("visibilitychange", handleFocusRefresh);
+    };
+  }, [isOwnerAuthorized]);
 
   const checkAuth = async () => {
     try {
-      const res = await fetch("/api/auth/me");
+      const res = await fetch("/api/auth/me", { cache: "no-store" });
       const data = await res.json();
       if (data.authenticated && data.user) {
         setCurrentUser(data.user);
       } else {
-        const stored = localStorage.getItem("boss_current_user");
-        if (stored) {
-          setCurrentUser(JSON.parse(stored));
-        }
+        setCurrentUser(null);
       }
     } catch (e) {
       console.error(e);
@@ -103,18 +140,29 @@ export default function OwnerAdminPage() {
     } catch (e) {}
     localStorage.removeItem("boss_current_user");
     setCurrentUser(null);
+    setReportData(null);
+    setUpcomingBookings([]);
   };
 
   const fetchReports = async () => {
     setReportLoading(true);
+    setReportError(null);
     try {
-      const res = await fetch("/api/admin/reports");
-      const data = await res.json();
-      if (data.success) {
-        setReportData(data);
+      const res = await fetch("/api/admin/reports", { cache: "no-store" });
+      if (res.status === 401) {
+        localStorage.removeItem("boss_current_user");
+        setCurrentUser(null);
+        setReportError("Your session has expired. Please sign in again.");
+        return;
       }
-    } catch (e) {
-      console.error(e);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setReportData(data);
+      } else {
+        setReportError(data.error || "Unable to fetch financial report.");
+      }
+    } catch {
+      setReportError("Network error fetching audit reports.");
     } finally {
       setReportLoading(false);
     }
@@ -123,17 +171,25 @@ export default function OwnerAdminPage() {
   const fetchAdminBookings = async () => {
     setBookingsLoading(true);
     try {
-      const res = await fetch("/api/pickleball/bookings");
-      const data = await res.json();
-      if (data.success && data.bookings) {
+      const res = await fetch("/api/pickleball/bookings", { cache: "no-store" });
+      if (res.status === 401) {
+        localStorage.removeItem("boss_current_user");
+        setCurrentUser(null);
+        setUpcomingBookings([]);
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.bookings) {
         const nowMs = Date.now() - 3600000;
         const upcoming = data.bookings
           .filter((b: any) => b.status !== "CANCELLED" && new Date(b.endTime).getTime() >= nowMs)
           .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
         setUpcomingBookings(upcoming.length > 0 ? upcoming : data.bookings.filter((b: any) => b.status !== "CANCELLED").slice(0, 6));
+      } else if (!res.ok) {
+        setReportError((prev) => prev || data.error || "Unable to fetch bookings from backend.");
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
+      setReportError((prev) => prev || "Network error fetching bookings from backend.");
     } finally {
       setBookingsLoading(false);
     }
@@ -141,45 +197,61 @@ export default function OwnerAdminPage() {
 
   const fetchCourts = async () => {
     try {
-      const res = await fetch("/api/pickleball/availability");
-      const data = await res.json();
-      if (data.success && data.courts) {
+      const res = await fetch("/api/pickleball/availability", { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.courts) {
         setCourts(data.courts);
-        if (data.courts.length > 0) {
+        if (data.courts.length > 0 && !blockCourtId) {
           setBlockCourtId(data.courts[0].id);
         }
+      } else if (!res.ok) {
+        setReportError((prev) => prev || data.error || "Unable to fetch court availability.");
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
+      setReportError((prev) => prev || "Network error fetching court availability.");
     }
   };
 
   const fetchPricingConfig = async () => {
     try {
-      const res = await fetch("/api/admin/pricing");
-      const data = await res.json();
-      if (data.success && data.pricingConfig) {
+      const res = await fetch("/api/admin/pricing", { cache: "no-store" });
+      if (res.status === 401) {
+        localStorage.removeItem("boss_current_user");
+        setCurrentUser(null);
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.pricingConfig) {
         setBasePrice(data.pricingConfig.basePricePerHour || 400);
         setPeakSurgePrice(data.pricingConfig.peakSurgePricePerHour || 550);
         setIsPeakSurgeActive(data.pricingConfig.isPeakSurgeActive ?? true);
         if (data.pricingConfig.peakHours) {
           setPeakHours(data.pricingConfig.peakHours);
         }
+      } else if (!res.ok) {
+        setPricingMsg(data.error || "Unable to load pricing configuration.");
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
+      setPricingMsg("Network error loading pricing configuration.");
     }
   };
 
   const fetchSchedules = async () => {
     try {
-      const res = await fetch("/api/admin/schedule");
-      const data = await res.json();
-      if (data.success && data.schedules) {
-        setAllSchedules(data.schedules);
+      const res = await fetch("/api/admin/schedule", { cache: "no-store" });
+      if (res.status === 401) {
+        localStorage.removeItem("boss_current_user");
+        setCurrentUser(null);
+        return;
       }
-    } catch (e) {
-      console.error(e);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.schedules) {
+        setAllSchedules(data.schedules);
+      } else if (!res.ok) {
+        setScheduleMsg(data.error || "Unable to load schedules from backend.");
+      }
+    } catch {
+      setScheduleMsg("Network error loading arena schedules.");
     }
   };
 
@@ -195,7 +267,6 @@ export default function OwnerAdminPage() {
           peakSurgePrice: Number(peakSurgePrice),
           isPeakSurgeActive,
           peakHours,
-          staffId: "owner-admin",
         }),
       });
       const data = await res.json();
@@ -209,14 +280,6 @@ export default function OwnerAdminPage() {
       setPricingMsg("Network error occurred");
     }
   };
-
-  const todayIst = React.useMemo(() => {
-    try {
-      return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-    } catch {
-      return new Date().toISOString().split("T")[0];
-    }
-  }, []);
 
   const todaySchedule = allSchedules.find((s) => s.date === todayIst) || allSchedules.find((s) => s.date === "DEFAULT") || {
     date: todayIst,
@@ -238,7 +301,6 @@ export default function OwnerAdminPage() {
           closureReason: reason,
           openTime: "06:00",
           closeTime: "23:00",
-          staffId: "owner-admin",
         }),
       });
       const data = await res.json();
@@ -265,7 +327,6 @@ export default function OwnerAdminPage() {
           isClosed: false,
           openTime: "06:00",
           closeTime: "23:00",
-          staffId: "owner-admin",
         }),
       });
       const data = await res.json();
@@ -295,7 +356,6 @@ export default function OwnerAdminPage() {
           closureReason: scheduleIsClosed ? scheduleClosureReason || "Holiday / Maintenance" : undefined,
           openTime: scheduleOpenTime,
           closeTime: scheduleCloseTime,
-          staffId: "owner-admin",
         }),
       });
       const data = await res.json();
@@ -323,7 +383,6 @@ export default function OwnerAdminPage() {
           isClosed: false,
           openTime: "06:00",
           closeTime: "23:00",
-          staffId: "owner-admin",
         }),
       });
       const data = await res.json();
@@ -338,8 +397,8 @@ export default function OwnerAdminPage() {
   const handleCreateBlock = async (e: React.FormEvent) => {
     e.preventDefault();
     setBlockMsg(null);
-    const startIso = new Date(`${blockDate}T${blockStartTime}:00`).toISOString();
-    const endIso = new Date(`${blockDate}T${blockEndTime}:00`).toISOString();
+    const startIso = new Date(`${blockDate}T${blockStartTime}:00+05:30`).toISOString();
+    const endIso = new Date(`${blockDate}T${blockEndTime}:00+05:30`).toISOString();
 
     try {
       const res = await fetch("/api/admin/blocks", {
@@ -351,13 +410,15 @@ export default function OwnerAdminPage() {
           endTime: endIso,
           reason: blockReason,
           notes: blockNotes,
-          staffId: "owner-admin",
         }),
       });
       const data = await res.json();
       if (data.success) {
         setBlockMsg("Schedule block created successfully!");
         setBlockNotes("");
+        fetchAdminBookings();
+        fetchReports();
+        fetchCourts();
       } else {
         setBlockMsg(data.error || "Failed to block slot");
       }
@@ -370,7 +431,7 @@ export default function OwnerAdminPage() {
     <div className="min-h-screen bg-[#070b10] text-[#f0f4f8] antialiased selection:bg-[#c7f711] selection:text-black">
       {/* Top Bar */}
       <header className="border-b border-white/10 bg-[#0d141f]/90 backdrop-blur sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 min-h-16 py-2.5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full overflow-hidden border border-[#c7f711] shadow-[0_0_15px_rgba(199,247,17,0.3)] bg-white">
               <Image
@@ -406,6 +467,16 @@ export default function OwnerAdminPage() {
                   Sign Out
                 </button>
               </div>
+            ) : currentUser ? (
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1 rounded-full">
+                <span className="text-xs text-white/90">{currentUser.name} ({currentUser.role})</span>
+                <button
+                  onClick={handleLogout}
+                  className="text-[10px] text-white/40 hover:text-white underline ml-1"
+                >
+                  Sign Out
+                </button>
+              </div>
             ) : (
               <button
                 onClick={() => setShowLoginModal(true)}
@@ -416,13 +487,15 @@ export default function OwnerAdminPage() {
               </button>
             )}
 
-            <Link
-              href="/staff"
-              className="text-xs bg-white/10 hover:bg-white/20 text-white font-medium px-3.5 py-1.5 rounded-lg border border-white/20 transition-all flex items-center gap-1.5"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Staff Desk</span>
-            </Link>
+            {(currentUser?.role === "OWNER" || currentUser?.role === "EMPLOYEE") && (
+              <Link
+                href="/staff"
+                className="text-xs bg-white/10 hover:bg-white/20 text-white font-medium px-3.5 py-1.5 rounded-lg border border-white/20 transition-all flex items-center gap-1.5"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Staff Desk</span>
+              </Link>
+            )}
             <Link
               href="/"
               className="text-xs text-white/70 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/30 transition-all"
@@ -435,6 +508,50 @@ export default function OwnerAdminPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {!authChecked ? (
+          <div className="p-16 text-center text-white/50 text-xs">
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3 text-[#c7f711]" />
+            Verifying Owner access...
+          </div>
+        ) : !isOwnerAuthorized ? (
+          <div className="max-w-lg mx-auto my-12 p-8 rounded-3xl bg-[#0d141f] border border-white/10 text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-purple-500/15 border border-purple-500/30 text-purple-300 flex items-center justify-center mx-auto">
+              <Shield className="w-6 h-6" />
+            </div>
+            <h2 className="text-xl font-bold text-white">Owner Authorization Required</h2>
+            <p className="text-xs text-white/60 leading-relaxed">
+              {currentUser
+                ? `Signed in as ${currentUser.name} (${currentUser.role}). Financial reports, pricing rules, and court management require an OWNER account.`
+                : "Please sign in with an authorized OWNER account to view executive financial reports and manage the arena."}
+            </p>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              {!currentUser && (
+                <button
+                  type="button"
+                  onClick={() => setShowLoginModal(true)}
+                  className="px-5 py-2.5 rounded-xl bg-purple-500 hover:bg-purple-600 text-white font-extrabold text-xs transition-all"
+                >
+                  Owner Sign In
+                </button>
+              )}
+              {currentUser?.role === "EMPLOYEE" && (
+                <Link
+                  href="/staff"
+                  className="px-5 py-2.5 rounded-xl bg-[#c7f711] text-black font-extrabold text-xs transition-all"
+                >
+                  Go to Staff Desk
+                </Link>
+              )}
+              <Link
+                href="/"
+                className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all"
+              >
+                Return to Booking Site
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <>
         {/* Quick Store Control & Emergency Daily Closure Banner */}
         <div className={`p-4 sm:p-5 rounded-3xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all shadow-xl ${
           todaySchedule?.isClosed
@@ -585,42 +702,75 @@ export default function OwnerAdminPage() {
         {/* ========================================================================= */}
         {/* TAB 1: REPORTS & RECONCILIATION */}
         {/* ========================================================================= */}
+        {activeTab === "reports" && reportLoading && !reportData && (
+          <div className="p-16 text-center rounded-3xl bg-[#0d141f] border border-white/10 text-white/60 text-xs">
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3 text-[#c7f711]" />
+            Loading live financial reconciliation &amp; revenue audit...
+          </div>
+        )}
+
+        {activeTab === "reports" && reportError && (
+          <div className="p-6 sm:p-8 rounded-3xl bg-amber-950/30 border border-amber-500/40 text-amber-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0" />
+              <div>
+                <div className="font-bold text-sm text-white">Unable to Load Latest Financial Report</div>
+                <p className="text-amber-200/80 mt-0.5">
+                  {reportError}
+                  {reportData ? " Showing previously loaded data below." : ""}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={fetchReports}
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold"
+            >
+              Retry Audit Load
+            </button>
+          </div>
+        )}
+
         {activeTab === "reports" && reportData && (
           <div className="space-y-6">
             {/* Top Reconciliation Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-5 rounded-3xl bg-[#0d141f] border border-white/10 relative overflow-hidden">
-                <div className="text-xs text-white/50 uppercase tracking-wider font-semibold">Total Arena Revenue</div>
+                <div className="text-xs text-white/50 uppercase tracking-wider font-semibold">Realized Collected Revenue</div>
                 <div className="text-3xl font-extrabold text-white mt-2">
-                  ₹{reportData.summary.grandTotalRevenue.toLocaleString("en-IN")}
+                  ₹{(reportData.summary.realizedRevenue ?? reportData.summary.grandTotalRevenue ?? 0).toLocaleString("en-IN")}
                 </div>
                 <div className="text-[11px] text-[#c7f711] mt-2 flex items-center gap-1">
-                  <span>Pickleball Court Bookings</span>
+                  <span>Cash + UPI + Paid Online Only</span>
+                </div>
+              </div>
+
+              <div className="p-5 rounded-3xl bg-[#0d141f] border border-amber-500/20 relative overflow-hidden">
+                <div className="text-xs text-amber-400 uppercase tracking-wider font-semibold">Pending Venue Payments</div>
+                <div className="text-3xl font-extrabold text-amber-400 mt-2">
+                  ₹{(reportData.summary.pendingVenuePayment ?? 0).toLocaleString("en-IN")}
+                </div>
+                <div className="text-[11px] text-white/50 mt-2">
+                  Gross Booked Value: ₹{(reportData.summary.grossBookedValue ?? 0).toLocaleString("en-IN")}
                 </div>
               </div>
 
               <div className="p-5 rounded-3xl bg-[#0d141f] border border-emerald-500/20 relative overflow-hidden">
                 <div className="text-xs text-emerald-400 uppercase tracking-wider font-semibold">Cash Counter Intake</div>
                 <div className="text-3xl font-extrabold text-emerald-400 mt-2">
-                  ₹{reportData.summary.totalCashReconciliation.toLocaleString("en-IN")}
+                  ₹{(reportData.summary.totalCashReconciliation ?? 0).toLocaleString("en-IN")}
                 </div>
                 <div className="text-[11px] text-white/50 mt-2">Physical Cash in Counter Drawer</div>
               </div>
 
               <div className="p-5 rounded-3xl bg-[#0d141f] border border-cyan-500/20 relative overflow-hidden">
-                <div className="text-xs text-cyan-400 uppercase tracking-wider font-semibold">UPI Counter Intake</div>
+                <div className="text-xs text-cyan-400 uppercase tracking-wider font-semibold">UPI &amp; Online Intake</div>
                 <div className="text-3xl font-extrabold text-cyan-400 mt-2">
-                  ₹{reportData.summary.totalUpiReconciliation.toLocaleString("en-IN")}
+                  ₹{((reportData.summary.totalUpiReconciliation ?? 0) + (reportData.summary.totalOnlineReconciliation ?? 0)).toLocaleString("en-IN")}
                 </div>
-                <div className="text-[11px] text-white/50 mt-2">Soundbox &amp; Counter Merchant QR</div>
-              </div>
-
-              <div className="p-5 rounded-3xl bg-[#0d141f] border border-purple-500/20 relative overflow-hidden">
-                <div className="text-xs text-purple-400 uppercase tracking-wider font-semibold">Online Portal Intake</div>
-                <div className="text-3xl font-extrabold text-purple-400 mt-2">
-                  ₹{reportData.summary.totalOnlineReconciliation.toLocaleString("en-IN")}
+                <div className="text-[11px] text-white/50 mt-2">
+                  Counter UPI: ₹{(reportData.summary.totalUpiReconciliation ?? 0).toLocaleString("en-IN")} • Online: ₹{(reportData.summary.totalOnlineReconciliation ?? 0).toLocaleString("en-IN")}
                 </div>
-                <div className="text-[11px] text-white/50 mt-2">Website Digital Pre-bookings</div>
               </div>
             </div>
 
@@ -633,7 +783,7 @@ export default function OwnerAdminPage() {
                     <span>Live Upcoming Court Schedule &amp; Reservations</span>
                   </h2>
                   <p className="text-xs text-white/60 mt-0.5">
-                    Real-time queue of confirmed matches across Court 1, Court 2, and Court 3.
+                    Real-time queue of confirmed matches across Court 1, Court 2, and Court 3 (All times in IST Asia/Kolkata).
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -650,7 +800,7 @@ export default function OwnerAdminPage() {
                 </div>
               </div>
 
-              {bookingsLoading ? (
+              {bookingsLoading && upcomingBookings.length === 0 ? (
                 <div className="py-8 text-center text-xs text-white/50">
                   <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-[#c7f711]" />
                   Syncing live court schedule...
@@ -660,7 +810,7 @@ export default function OwnerAdminPage() {
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="border-b border-white/10 text-white/50 uppercase tracking-wider text-[10px]">
-                        <th className="py-3 px-3">Date &amp; Time</th>
+                        <th className="py-3 px-3">Date &amp; Time (IST)</th>
                         <th className="py-3 px-3">Court</th>
                         <th className="py-3 px-3">Customer</th>
                         <th className="py-3 px-3">Contact</th>
@@ -676,14 +826,22 @@ export default function OwnerAdminPage() {
                         const start = new Date(b.startTime);
                         const end = new Date(b.endTime);
                         const dateStr = start.toLocaleDateString("en-IN", {
+                          timeZone: "Asia/Kolkata",
                           weekday: "short",
                           month: "short",
                           day: "numeric",
                         });
-                        const timeStr = `${start.toLocaleTimeString([], {
+                        const timeStr = `${start.toLocaleTimeString("en-IN", {
+                          timeZone: "Asia/Kolkata",
                           hour: "2-digit",
                           minute: "2-digit",
-                        })} - ${end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+                          hour12: true,
+                        })} - ${end.toLocaleTimeString("en-IN", {
+                          timeZone: "Asia/Kolkata",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}`;
 
                         return (
                           <tr key={b.id} className="hover:bg-white/5 transition-colors text-white/90">
@@ -711,14 +869,14 @@ export default function OwnerAdminPage() {
                             <td className="py-3 px-3 whitespace-nowrap">
                               <span
                                 className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                                  b.paymentStatus === "PAID_ONLINE"
+                                  b.paymentStatus === "PAID_ONLINE" || b.paymentStatus === "CASH_COUNTER"
                                     ? "bg-emerald-500/20 text-emerald-400"
                                     : b.paymentStatus === "UPI_COUNTER"
                                     ? "bg-cyan-500/20 text-cyan-400"
                                     : "bg-amber-500/20 text-amber-400"
                                 }`}
                               >
-                                {b.paymentStatus?.replace("_", " ")}
+                                {b.paymentStatus?.replace(/_/g, " ")}
                               </span>
                             </td>
                             <td className="py-3 px-3 font-bold text-[#c7f711] whitespace-nowrap">
@@ -752,11 +910,11 @@ export default function OwnerAdminPage() {
                     <Database className="w-5 h-5 text-[#c7f711]" />
                     <div>
                       <h3 className="font-bold text-white text-base">Pickleball Database</h3>
-                      <p className="text-[11px] text-white/50">Storage: backend/data/pickleball.json</p>
+                      <p className="text-[11px] text-white/50">Persistent Booking &amp; Audit Ledger</p>
                     </div>
                   </div>
                   <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-[#c7f711]/20 text-[#c7f711] border border-[#c7f711]/30">
-                    Isolated DB 1
+                    Active Store
                   </span>
                 </div>
 
@@ -766,8 +924,16 @@ export default function OwnerAdminPage() {
                     <span className="font-bold text-white font-mono">{reportData.pickleballDatabase.totalBookings}</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-white/5 text-xs">
-                    <span className="text-white/60">Pickleball Total Revenue:</span>
-                    <span className="font-bold text-[#c7f711] font-mono text-sm">₹{reportData.pickleballDatabase.totalRevenue}</span>
+                    <span className="text-white/60">Realized Collected Revenue:</span>
+                    <span className="font-bold text-[#c7f711] font-mono text-sm">₹{reportData.pickleballDatabase.realizedRevenue ?? reportData.pickleballDatabase.totalRevenue}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-white/5 text-xs">
+                    <span className="text-white/60">Pending Collection at Venue:</span>
+                    <span className="font-bold text-amber-400 font-mono">₹{reportData.pickleballDatabase.pendingVenuePayment ?? 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-white/5 text-xs">
+                    <span className="text-white/60">Gross Booked Value (All Active):</span>
+                    <span className="font-bold text-white font-mono">₹{reportData.pickleballDatabase.grossBookedValue ?? 0}</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-white/5 text-xs">
                     <span className="text-white/60">Cash Collected at Counter:</span>
@@ -778,7 +944,7 @@ export default function OwnerAdminPage() {
                     <span className="font-bold text-white font-mono">₹{reportData.pickleballDatabase.upiCounterRevenue}</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-white/5 text-xs">
-                    <span className="text-white/60">Online Advance Payments:</span>
+                    <span className="text-white/60">Online Verified Payments:</span>
                     <span className="font-bold text-white font-mono">₹{reportData.pickleballDatabase.onlineRevenue}</span>
                   </div>
 
@@ -809,7 +975,7 @@ export default function OwnerAdminPage() {
                     <Shield className="w-5 h-5 text-[#c7f711]" />
                     <div>
                       <h3 className="font-bold text-white text-base">Court Infrastructure &amp; Rules</h3>
-                      <p className="text-[11px] text-white/50">3 Tournament Courts • 500-Lux Lighting</p>
+                      <p className="text-[11px] text-white/50">{courts.length || 3} Active Courts Configured</p>
                     </div>
                   </div>
                   <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-[#c7f711]/20 text-[#c7f711] border border-[#c7f711]/30">
@@ -820,27 +986,23 @@ export default function OwnerAdminPage() {
                 <div className="space-y-4 text-xs">
                   <div className="flex justify-between items-center py-2 border-b border-white/5">
                     <span className="text-white/60">Active Courts Available:</span>
-                    <span className="font-bold text-white font-mono">3 Tournament Courts</span>
+                    <span className="font-bold text-white font-mono">{courts.filter((c) => c.isActive !== false).length || courts.length} Active Courts</span>
+                  </div>
+                  {courts.map((c) => (
+                    <div key={c.id} className="flex justify-between items-center py-2 border-b border-white/5">
+                      <span className="text-white/60">{c.name}:</span>
+                      <span className={`font-bold ${c.isActive === false ? "text-amber-400" : "text-emerald-400"}`}>
+                        {c.isActive === false ? "Paused" : "Operational"}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between items-center py-2 border-b border-white/5">
+                    <span className="text-white/60">Equipment Desk:</span>
+                    <span className="font-bold text-neutral-300">Managed at venue reception</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-white/5">
-                    <span className="text-white/60">Court 1:</span>
-                    <span className="font-bold text-emerald-400">Operational</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-white/5">
-                    <span className="text-white/60">Court 2:</span>
-                    <span className="font-bold text-emerald-400">Operational</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-white/5">
-                    <span className="text-white/60">Court 3:</span>
-                    <span className="font-bold text-emerald-400">Operational</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-white/5">
-                    <span className="text-white/60">Equipment Policy:</span>
-                    <span className="font-bold text-[#c7f711]">Complimentary Pro Paddles &amp; Balls</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-white/5">
-                    <span className="text-white/60">Double-Booking Prevention:</span>
-                    <span className="font-bold text-emerald-400">Atomic 10-Min Hold Engine Active</span>
+                    <span className="text-white/60">Booking Validation:</span>
+                    <span className="font-bold text-emerald-400">Server overlap check + 10-min checkout hold</span>
                   </div>
                 </div>
               </div>
@@ -985,7 +1147,7 @@ export default function OwnerAdminPage() {
                 </div>
 
                 <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-xs text-white/60">
-                  <span className="text-[#c7f711] font-semibold">ℹ Note:</span> Official tournament paddles and balls are provided complimentary for all players by the club. No equipment rental fees are added.
+                  <span className="text-[#c7f711] font-semibold">ℹ Note:</span> Venue pricing applies per booked court hour based on active base and peak surge settings; ask desk staff regarding equipment availability or rentals.
                 </div>
 
                 <button
@@ -1004,7 +1166,7 @@ export default function OwnerAdminPage() {
                 <span>Active Courts &amp; Rate Structure</span>
               </h3>
               <p className="text-xs text-white/60">
-                Boss Pickleball operates 3 professional courts with atomic double-booking locks.
+                Boss Pickleball operates 3 courts validated with server-side slot overlap checks.
               </p>
 
               <div className="space-y-3 pt-2">
@@ -1340,7 +1502,7 @@ export default function OwnerAdminPage() {
                   <option value="MAINTENANCE">Court Resurfacing / Net Maintenance</option>
                   <option value="TOURNAMENT">Club Tournament / League</option>
                   <option value="COACHING">Coaching Clinic / Academy Session</option>
-                  <option value="OTHER">Other Private Event</option>
+                  <option value="PRIVATE_EVENT">Other Private Event</option>
                 </select>
               </div>
 
@@ -1363,6 +1525,8 @@ export default function OwnerAdminPage() {
               </button>
             </form>
           </div>
+        )}
+          </>
         )}
       </div>
 

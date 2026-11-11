@@ -15,8 +15,9 @@ dist/
 .env.*.local
 *.env
 
-# User credential data
+# User credential & legacy JSON database files
 data/users_auth.json
+data/pickleball_database.json
 
 # Logs & temp
 npm-debug.log*

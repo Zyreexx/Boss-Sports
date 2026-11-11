@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickleballDb } from "@/lib/db/pickleballDb";
 import { enforceRole } from "@/lib/auth/serverAuth";
+import {
+  callDjangoApi,
+  getBackendMisconfiguredResponse,
+  isDjangoBackendConfigured,
+  isLocalJsonFallbackDisabled,
+  toProxyJsonResponse,
+} from "@/lib/backend/djangoClient";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +26,20 @@ export async function POST(req: NextRequest) {
         { success: false, error: "courtId, startTime, and endTime are required" },
         { status: 400 }
       );
+    }
+
+    if (isDjangoBackendConfigured()) {
+      const upstream = await callDjangoApi({
+        path: "/api/admin/blocks/",
+        method: "POST",
+        body: { courtId, startTime, endTime, reason, notes },
+        actor: auth.actor,
+      });
+      return toProxyJsonResponse(upstream);
+    }
+
+    if (isLocalJsonFallbackDisabled()) {
+      return getBackendMisconfiguredResponse();
     }
 
     const result = pickleballDb.createScheduleBlock({

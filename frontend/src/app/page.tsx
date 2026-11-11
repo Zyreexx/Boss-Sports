@@ -20,6 +20,8 @@ import {
   Timer,
   Zap,
   Lock,
+  RefreshCw,
+  Menu,
 } from "lucide-react";
 import LoginModal from "@/components/LoginModal";
 import ArenaGallery from "@/components/ArenaGallery";
@@ -57,6 +59,13 @@ export default function HomePage() {
   const [confirmedBooking, setConfirmedBooking] = useState<any | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
 
+  // Sync & Connection Status state
+  const [isRefreshingAvailability, setIsRefreshingAvailability] = useState<boolean>(false);
+  const [hasLoadedSlots, setHasLoadedSlots] = useState<boolean>(false);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+
   // Dynamic Operating Hours & Holiday Schedule state
   const [arenaClosed, setArenaClosed] = useState<boolean>(false);
   const [closureReason, setClosureReason] = useState<string | null>(null);
@@ -77,7 +86,7 @@ export default function HomePage() {
 
   const checkCurrentUser = async () => {
     try {
-      const res = await fetch("/api/auth/me");
+      const res = await fetch("/api/auth/me", { cache: "no-store" });
       const data = await res.json();
       if (data.authenticated && data.user) {
         setCurrentUser(data.user);
@@ -86,18 +95,11 @@ export default function HomePage() {
           setCustPhone(data.user.phone || "");
         }
       } else {
-        const stored = localStorage.getItem("boss_current_user");
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          setCurrentUser(parsed);
-          if (parsed.role === "CUSTOMER") {
-            setCustName(parsed.name || "");
-            setCustPhone(parsed.phone || "");
-          }
-        }
+        localStorage.removeItem("boss_current_user");
+        setCurrentUser(null);
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
+      setCurrentUser(null);
     }
   };
 
@@ -119,9 +121,30 @@ export default function HomePage() {
     setHoldSessionId(sid);
   }, []);
 
-  // Fetch courts & slots when bookingDate or selectedCourtId changes
+  // Fetch courts & slots when bookingDate or selectedCourtId changes + Live Polling & Focus Refresh
   useEffect(() => {
-    fetchSlots();
+    fetchSlots(false);
+
+    const pollInterval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchSlots(true);
+      }
+    }, 6000);
+
+    const handleFocusRefresh = () => {
+      if (document.visibilityState === "visible") {
+        fetchSlots(true);
+      }
+    };
+
+    window.addEventListener("focus", handleFocusRefresh);
+    document.addEventListener("visibilitychange", handleFocusRefresh);
+
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener("focus", handleFocusRefresh);
+      document.removeEventListener("visibilitychange", handleFocusRefresh);
+    };
   }, [bookingDate, selectedCourtId]);
 
   // Hold Timer countdown
@@ -134,7 +157,7 @@ export default function HomePage() {
           setActiveHold(null);
           setSelectedSlot(null);
           setBookingError("Your 10-minute temporary slot hold has expired. Please select a slot to re-lock.");
-          fetchSlots();
+          fetchSlots(true);
           return 0;
         }
         return prev - 1;
@@ -143,26 +166,83 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [holdTimerSeconds]);
 
-  const fetchSlots = async () => {
+  const fetchSlots = async (silent = false) => {
+    if (!silent) {
+      setIsRefreshingAvailability(true);
+    }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     try {
       const url = `/api/pickleball/availability?date=${bookingDate}${
         selectedCourtId ? `&courtId=${selectedCourtId}` : ""
       }`;
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: "no-store", signal: controller.signal });
+      if (!res.ok) {
+        throw new Error(`Server returned status ${res.status}`);
+      }
       const data = await res.json();
       if (data.success) {
+        setAvailabilityError(null);
+        setLastSyncedAt(new Date());
         setCourts(data.courts || []);
         if (!selectedCourtId && data.courts?.length > 0) {
           setSelectedCourtId(data.courts[0].id);
         }
-        setAvailableSlots(data.slots || []);
+        const incomingSlots = data.slots || [];
+        setAvailableSlots(incomingSlots);
         setArenaClosed(Boolean(data.isClosed));
         setClosureReason(data.closureReason || null);
         setArenaOpenTime(data.openTime || "06:00");
         setArenaCloseTime(data.closeTime || "23:00");
+
+        // Reconcile if currently selected slot was taken or blocked externally
+        setSelectedSlot((currentSelected: any) => {
+          if (!currentSelected) return null;
+          const matching = incomingSlots.find((s: any) => s.slotId === currentSelected.slotId);
+          if (matching && (matching.status === "BOOKED" || matching.status === "BLOCKED" || matching.status === "PASSED")) {
+            setActiveHold(null);
+            setHoldTimerSeconds(0);
+            setBookingError(`The ${currentSelected.timeLabel} slot is no longer available (${matching.status.toLowerCase()}). Please pick another slot.`);
+            return null;
+          }
+          return currentSelected;
+        });
+      } else {
+        setAvailabilityError(data.error || "Unable to verify live availability.");
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      if (e?.name === "AbortError") {
+        setAvailabilityError("Timed out waiting for availability from the server. Please retry.");
+      } else {
+        setAvailabilityError("Unable to reach booking server. Displayed slots may be out of date.");
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      setHasLoadedSlots(true);
+      if (!silent) {
+        setIsRefreshingAvailability(false);
+      }
+    }
+  };
+
+  // Explicit Release of Active Hold
+  const handleReleaseHold = async () => {
+    const currentHoldId = activeHold?.id;
+    setActiveHold(null);
+    setHoldTimerSeconds(0);
+    setSelectedSlot(null);
+    try {
+      await fetch("/api/pickleball/hold", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: holdSessionId,
+          holdId: currentHoldId,
+        }),
+      });
+      await fetchSlots(true);
+    } catch {
+      // Ignore release network error
     }
   };
 
@@ -170,7 +250,6 @@ export default function HomePage() {
   const handleSelectSlot = async (slot: any) => {
     if (!slot.isAvailable) return;
     setBookingError(null);
-    setSelectedSlot(slot);
 
     try {
       const res = await fetch("/api/pickleball/hold", {
@@ -185,13 +264,19 @@ export default function HomePage() {
       });
       const data = await res.json();
       if (data.success) {
+        setSelectedSlot(slot);
         setActiveHold(data.hold);
         setHoldTimerSeconds(600); // 10 minutes (600s)
+        fetchSlots(true);
       } else {
-        setBookingError(data.error || "Slot could not be held.");
+        setSelectedSlot(null);
+        setActiveHold(null);
+        setHoldTimerSeconds(0);
+        setBookingError(data.error || "Slot is no longer available. Availability refreshed.");
+        fetchSlots(true);
       }
     } catch (e) {
-      console.error(e);
+      setBookingError("Could not reach server to lock slot. Please check your connection.");
     }
   };
 
@@ -229,9 +314,10 @@ export default function HomePage() {
         setSelectedSlot(null);
         setCustName("");
         setCustPhone("");
-        fetchSlots();
+        fetchSlots(false);
       } else {
         setBookingError(data.error || "Failed to confirm reservation.");
+        fetchSlots(true);
       }
     } catch (e: any) {
       setBookingError("Network error occurred during booking.");
@@ -251,7 +337,15 @@ export default function HomePage() {
     setLookupLoading(true);
     setCancelStatus(null);
     try {
-      const res = await fetch("/api/pickleball/bookings");
+      const res = await fetch("/api/pickleball/bookings", { cache: "no-store" });
+      if (res.status === 401) {
+        localStorage.removeItem("boss_current_user");
+        setCurrentUser(null);
+        setUserBookings([]);
+        setCancelStatus("Your session has expired. Please sign in again.");
+        setShowLoginModal(true);
+        return;
+      }
       const data = await res.json();
       if (data.success) {
         setUserBookings(data.bookings || []);
@@ -265,6 +359,23 @@ export default function HomePage() {
       setLookupLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!showLookupModal) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowLookupModal(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showLookupModal]);
+
+  const activeCourtCount = courts.length || 3;
+  const standardRate = courts.find((c) => c.id === selectedCourtId)?.basePricePerHour ?? courts[0]?.basePricePerHour ?? 400;
+  const configuredHoursText = arenaClosed
+    ? `Closed on ${bookingDate}${closureReason ? ` (${closureReason})` : ""}`
+    : `${arenaOpenTime} – ${arenaCloseTime} IST`;
 
   // Customer Self-Cancel (with 2-hr policy enforcement)
   const handleCustomerCancel = async (bookingId: string) => {
@@ -292,6 +403,9 @@ export default function HomePage() {
         fetchSlots();
       } else {
         if (res.status === 401) {
+          localStorage.removeItem("boss_current_user");
+          setCurrentUser(null);
+          setUserBookings([]);
           setShowLoginModal(true);
         }
         setCancelStatus(`Error: ${data.error}`);
@@ -303,24 +417,24 @@ export default function HomePage() {
 
   const faqs = [
     {
-      q: "How does the zero double-booking court guarantee work?",
-      a: "Our system uses strict atomic interval math (startA < endB && endA > startB) across every booking source (Online, Desk Walk-in, Phone). When you pick a time slot, it is held atomically for 10 minutes so no one else can book over your session.",
+      q: "How do court slot holds and overlap checks work?",
+      a: "Online bookings, temporary 10-minute checkout holds, and staff desk reservations share one server booking store that validates overlapping time intervals (`start < endB && end > startB`) before confirming a booking.",
     },
     {
-      q: "What is your cancellation and refund policy?",
-      a: "Cancellations are permitted up to 2 hours before your scheduled slot through our self-service lookup portal. Within 2 hours of game start, slots are locked for play preparation. Staff can assist in special circumstances.",
+      q: "What is your cancellation and payment policy?",
+      a: "Self-service cancellations are permitted up to 2 hours before your scheduled start time through your signed-in account. Within 2 hours of game start, or for any payment adjustment, please contact the venue reception desk.",
     },
     {
-      q: "Do I need to bring my own paddles and balls?",
-      a: "Not at all! Official pro tournament-grade carbon fiber paddles and optic balls are provided completely complimentary by Boss Pickleball for all players. Locker rooms, clean towels, and showers are also complimentary.",
+      q: "What payment methods are accepted?",
+      a: "Reservations booked on the website are confirmed for payment on arrival at the reception desk via Cash or Counter UPI.",
     },
     {
-      q: "How many courts are available and how are they maintained?",
-      a: "Boss Pickleball features 3 dedicated championship courts (Court 1, Court 2, and Court 3) with USAPA-standard acrylic cushioning, professional 500-lux anti-glare floodlighting, and regular maintenance for true bounce.",
+      q: "How many courts and operating hours does Boss Pickleball offer?",
+      a: `Boss Pickleball operates ${activeCourtCount} dedicated pickleball courts with configured hours for ${bookingDate} of ${configuredHoursText} (generally ${arenaOpenTime} – ${arenaCloseTime} IST unless a holiday closure is active).`,
     },
     {
-      q: "Where is Boss Pickleball located?",
-      a: "We are situated centrally in Gondal, featuring 3 professional tournament-spec acrylic courts with glare-free 500-lux LED court illumination and shaded player lounges.",
+      q: "Where is Boss Pickleball located and how about paddles or gear?",
+      a: "We are located in Gondal, Gujarat. Check directly with venue reception on arrival regarding paddle rentals, equipment, or coaching inquiries.",
     },
   ];
 
@@ -399,10 +513,10 @@ export default function HomePage() {
             )}
           </nav>
 
-          {/* Role Status & Auth Access */}
-          <div className="flex items-center gap-2">
+          {/* Role Status, Auth Access & Mobile Menu Toggle */}
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {currentUser ? (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <Link
                   href="/profile"
                   className="flex items-center gap-2 bg-white/10 hover:bg-white/15 px-3 py-1.5 rounded-full border border-white/20 transition-all"
@@ -425,22 +539,22 @@ export default function HomePage() {
                     }`}
                   >
                     {currentUser.role === "OWNER"
-                      ? "👑 Owner"
+                      ? "Owner"
                       : currentUser.role === "EMPLOYEE"
-                      ? "🛡️ Employee"
-                      : "🎾 Customer"}
+                      ? "Staff"
+                      : "Customer"}
                   </span>
-                  <span className="text-xs font-semibold text-white max-w-[120px] truncate">
+                  <span className="text-xs font-semibold text-white max-w-[100px] truncate">
                     {currentUser.name}
                   </span>
                 </Link>
 
                 <Link
                   href="/profile"
-                  className="bg-[#c7f711] hover:bg-[#b0dc0d] text-black text-xs font-bold px-3 py-1.5 rounded-full transition-all flex items-center gap-1 shadow-sm"
+                  className="hidden sm:flex bg-[#c7f711] hover:bg-[#b0dc0d] text-black text-xs font-bold px-3 py-1.5 rounded-full transition-all items-center gap-1 shadow-sm"
                 >
                   <Calendar className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">My Schedule</span>
+                  <span>My Schedule</span>
                 </Link>
 
                 {currentUser.role === "OWNER" && (
@@ -462,8 +576,9 @@ export default function HomePage() {
                 )}
 
                 <button
+                  type="button"
                   onClick={handleLogout}
-                  className="text-[11px] text-white/50 hover:text-white underline ml-1"
+                  className="text-[11px] text-white/70 hover:text-white underline ml-1"
                 >
                   Sign Out
                 </button>
@@ -471,11 +586,12 @@ export default function HomePage() {
             ) : (
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => setShowLoginModal(true)}
-                  className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full text-xs font-semibold tracking-tight transition-all border border-white/20 flex items-center gap-1.5"
+                  className="bg-white/10 hover:bg-white/20 text-white px-3.5 py-2 rounded-full text-xs font-semibold tracking-tight transition-all border border-white/20 flex items-center gap-1.5"
                 >
                   <Lock className="w-3.5 h-3.5 text-[#c7f711]" />
-                  <span>Login / Roles</span>
+                  <span>Sign In</span>
                 </button>
                 <Link
                   href="/staff"
@@ -485,8 +601,75 @@ export default function HomePage() {
                 </Link>
               </div>
             )}
+
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              aria-expanded={mobileMenuOpen}
+              aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+              className="md:hidden p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Navigation Drawer */}
+        {mobileMenuOpen && (
+          <nav
+            aria-label="Mobile Navigation"
+            className="relative z-20 md:hidden mx-6 mt-3 p-4 rounded-2xl bg-[#0d141f]/95 border border-white/15 backdrop-blur-md flex flex-col gap-3 text-sm font-medium text-white shadow-xl"
+          >
+            <a
+              href="#booking"
+              onClick={() => setMobileMenuOpen(false)}
+              className="hover:text-[#c7f711] py-1"
+            >
+              Book Court
+            </a>
+            <a
+              href="#gallery"
+              onClick={() => setMobileMenuOpen(false)}
+              className="hover:text-[#c7f711] py-1"
+            >
+              Gallery
+            </a>
+            <a
+              href="#services"
+              onClick={() => setMobileMenuOpen(false)}
+              className="hover:text-[#c7f711] py-1"
+            >
+              Services
+            </a>
+            <a
+              href="#pricing"
+              onClick={() => setMobileMenuOpen(false)}
+              className="hover:text-[#c7f711] py-1"
+            >
+              Pricing &amp; Plans
+            </a>
+            {currentUser ? (
+              <Link
+                href="/profile"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-[#c7f711] font-semibold py-1"
+              >
+                My Bookings &amp; Profile
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setShowLookupModal(true);
+                }}
+                className="text-left text-[#c7f711] font-semibold py-1"
+              >
+                My Bookings
+              </button>
+            )}
+          </nav>
+        )}
 
         {/* Hero Content */}
         <div className="relative z-10 w-full max-w-[1200px] mx-auto px-6 sm:px-10 my-auto pt-16 pb-8">
@@ -504,7 +687,7 @@ export default function HomePage() {
             </h1>
 
             <p className="text-sm sm:text-[15px] text-white/80 max-w-[520px] leading-relaxed mb-8">
-              Gondal&apos;s dedicated Pickleball facility featuring 3 tournament-spec courts (Courts 1, 2, and 3) with real-time atomic reservation locking and direct venue rates.
+              Gondal&apos;s dedicated Pickleball facility featuring 3 courts (Courts 1, 2, and 3) with live server-checked availability, 10-minute checkout holds, and transparent direct rates.
             </p>
 
             <div className="flex flex-wrap items-center gap-4">
@@ -538,10 +721,10 @@ export default function HomePage() {
           <div className="flex items-center gap-4 text-white/80">
             <span className="flex items-center gap-1.5 text-white/90">
               <span className="w-2 h-2 rounded-full bg-[#c7f711]" />
-              3 Courts (Courts 1, 2, 3)
+              {activeCourtCount} {activeCourtCount === 1 ? "Court" : "Courts"} Live
             </span>
             <span className="hidden sm:inline text-white/40">•</span>
-            <span className="text-white/70">₹400 / hr Standard Rate</span>
+            <span className="text-white/70">₹{standardRate} / hr Standard Rate</span>
           </div>
         </div>
       </header>
@@ -549,7 +732,7 @@ export default function HomePage() {
       {/* ========================================================================= */}
       {/* 2. SECTION — Action Arena Video & Photo Gallery */}
       {/* ========================================================================= */}
-      <ArenaGallery />
+      <ArenaGallery standardRate={standardRate} />
 
       {/* ========================================================================= */}
       {/* 3. LIVE INTERACTIVE COURT BOOKING SECTION (REAL BACKEND INTEGRATION) */}
@@ -564,7 +747,7 @@ export default function HomePage() {
               Reserve Your Court Now
             </h3>
             <p className="text-xs sm:text-sm text-neutral-600 mt-2">
-              Select date, pick your preferred court, and tap any green slot to lock an atomic 10-minute checkout hold. Zero double-booking guarantee.
+              Select a date and court, then choose any available slot below to start a temporary 10-minute checkout hold.
             </p>
           </div>
 
@@ -577,49 +760,66 @@ export default function HomePage() {
                     ✓
                   </div>
                   <div>
-                    <h4 className="font-bold text-emerald-950 text-base">Booking Confirmed!</h4>
+                    <h4 className="font-bold text-emerald-950 text-base">Booking Confirmed</h4>
                     <p className="text-xs text-emerald-800">
-                      Booking Ref: <strong className="font-mono">#{confirmedBooking.id.slice(-6).toUpperCase()}</strong>
+                      Booking Ref: <strong className="font-mono">#{confirmedBooking.id.slice(-6).toUpperCase()}</strong> • Status: <strong>{confirmedBooking.status}</strong>
                     </p>
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setConfirmedBooking(null)}
+                  aria-label="Close booking confirmation"
                   className="text-xs text-emerald-800 hover:text-black font-semibold"
                 >
                   ✕ Close
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-xs text-emerald-950 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-emerald-950 mb-4">
                 <div>
-                  <span className="text-emerald-700 block">Court:</span>
-                  <span className="font-semibold text-sm">{confirmedBooking.courtName}</span>
+                  <span className="text-emerald-700 block">Venue &amp; Court:</span>
+                  <span className="font-semibold text-sm">Boss Pickleball, Gondal • {confirmedBooking.courtName}</span>
                 </div>
                 <div>
                   <span className="text-emerald-700 block">Player:</span>
                   <span className="font-semibold text-sm">{confirmedBooking.customerName} ({confirmedBooking.customerPhone})</span>
                 </div>
                 <div>
-                  <span className="text-emerald-700 block">Date &amp; Time:</span>
+                  <span className="text-emerald-700 block">Date &amp; Time Window (IST):</span>
                   <span className="font-semibold text-sm">
-                    {new Date(confirmedBooking.startTime).toLocaleString("en-IN", {
+                    {new Date(confirmedBooking.startTime).toLocaleDateString("en-IN", {
+                      timeZone: "Asia/Kolkata",
                       weekday: "short",
                       month: "short",
                       day: "numeric",
+                    })}{" "}
+                    •{" "}
+                    {new Date(confirmedBooking.startTime).toLocaleTimeString("en-IN", {
+                      timeZone: "Asia/Kolkata",
                       hour: "2-digit",
                       minute: "2-digit",
+                      hour12: true,
+                    })}{" "}
+                    –{" "}
+                    {new Date(confirmedBooking.endTime).toLocaleTimeString("en-IN", {
+                      timeZone: "Asia/Kolkata",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: true,
                     })}
                   </span>
                 </div>
                 <div>
-                  <span className="text-emerald-700 block">Total Paid:</span>
-                  <span className="font-bold text-sm text-emerald-900">₹{confirmedBooking.totalPrice}</span>
+                  <span className="text-emerald-700 block">
+                    Duration &amp; {confirmedBooking.paymentStatus === "PAID_ONLINE" ? "Paid Online" : "Due at Venue (Cash / UPI)"}:
+                  </span>
+                  <span className="font-bold text-sm text-emerald-900">60 Minutes • ₹{confirmedBooking.totalPrice}</span>
                 </div>
               </div>
 
               <div className="p-3 bg-emerald-100/60 rounded-xl text-[11px] text-emerald-900">
-                A confirmation has been recorded in the Pickleball isolated database. You can manage or cancel this booking up to 2 hours before start using the &ldquo;My Bookings&rdquo; link above.
+                Reservation confirmed for payment at the venue reception desk upon arrival. Signed-in account holders can cancel up to 2 hours before start via &ldquo;My Reservations&rdquo;; within 2 hours or for payment adjustments, contact venue reception.
               </div>
             </div>
           )}
@@ -631,23 +831,20 @@ export default function HomePage() {
                 <Timer className="w-5 h-5 text-[#c7f711] animate-spin" />
                 <div>
                   <span className="text-xs font-semibold block text-[#c7f711]">
-                    Atomic Hold Active: {Math.floor(holdTimerSeconds / 60)}:
+                    Temporary Hold Active: {Math.floor(holdTimerSeconds / 60)}:
                     {(holdTimerSeconds % 60).toString().padStart(2, "0")} left
                   </span>
                   <span className="text-[11px] text-white/70">
-                    This slot is reserved exclusively for you. Complete details to lock it.
+                    Temporarily held for this checkout session. Confirm your details before the timer expires.
                   </span>
                 </div>
               </div>
               <button
-                onClick={() => {
-                  setActiveHold(null);
-                  setHoldTimerSeconds(0);
-                  setSelectedSlot(null);
-                }}
-                className="text-[11px] text-white/50 hover:text-white"
+                type="button"
+                onClick={handleReleaseHold}
+                className="text-[11px] text-white/70 hover:text-white underline"
               >
-                Release
+                Release Hold
               </button>
             </div>
           )}
@@ -659,8 +856,11 @@ export default function HomePage() {
               <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-neutral-100 mb-4">
                 <div className="flex items-center gap-3">
                   <Calendar className="w-4 h-4 text-[#0000ee]" />
-                  <span className="text-xs font-semibold text-neutral-800">Date:</span>
+                  <label htmlFor="booking-date-input" className="text-xs font-semibold text-neutral-800">
+                    Date:
+                  </label>
                   <input
+                    id="booking-date-input"
                     type="date"
                     min={todayDate}
                     value={bookingDate}
@@ -687,7 +887,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Dynamic Operating Hours & Holiday Badge */}
+              {/* Dynamic Operating Hours, Holiday Badge & Live Sync Indicator */}
               <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
                 {arenaClosed ? (
                   <div className="w-full p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 flex items-center gap-3">
@@ -702,12 +902,83 @@ export default function HomePage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Operating Hours for {bookingDate}: {arenaOpenTime} – {arenaCloseTime}</span>
-                  </div>
+                  <>
+                    <div className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Operating Hours ({bookingDate}): {arenaOpenTime} – {arenaCloseTime} IST</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {isRefreshingAvailability ? (
+                        <span className="text-[11px] text-neutral-500 flex items-center gap-1">
+                          <RefreshCw className="w-3 h-3 animate-spin text-[#0000ee]" />
+                          Updating availability...
+                        </span>
+                      ) : lastSyncedAt ? (
+                        <span className="text-[11px] text-neutral-500 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          Live synced {lastSyncedAt.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}
+                        </span>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => fetchSlots(false)}
+                        className="p-1.5 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-100 hover:text-black transition-all"
+                        title="Refresh live slot availability"
+                        aria-label="Refresh live slot availability"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingAvailability ? "animate-spin" : ""}`} />
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
+
+              {/* Connection Error / Stale Warning */}
+              {availabilityError && (
+                <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                    <span>{availabilityError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fetchSlots(false)}
+                    className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold flex-shrink-0"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              {/* Slot Status Legend (non-color cues + color indicators) */}
+              {!arenaClosed && (
+                <div
+                  aria-label="Slot status legend"
+                  className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-neutral-600 bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5"
+                >
+                  <span className="inline-flex items-center gap-1.5 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" aria-hidden="true" />
+                    ✓ Available
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-black" aria-hidden="true" />
+                    ● Selected
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" aria-hidden="true" />
+                    ⏳ Held
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-rose-500" aria-hidden="true" />
+                    ✕ Booked
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-slate-400" aria-hidden="true" />
+                    ⊘ Blocked
+                  </span>
+                </div>
+              )}
 
               {/* Slot Grid */}
               {!arenaClosed && (
@@ -720,14 +991,14 @@ export default function HomePage() {
                       const isBlocked = slot.status === "BLOCKED";
                       const isPassed = slot.status === "PASSED";
 
-                      let statusBadgeLabel = `₹${slot.price}`;
+                      let statusBadgeLabel = `✓ ₹${slot.price}`;
                       let statusBadgeClass = "bg-emerald-500";
                       let cardStyle = "bg-white border-neutral-300 hover:border-neutral-800 text-neutral-800 hover:shadow-sm";
 
                       if (isSelected) {
                         cardStyle = "bg-[#c7f711] border-[#c7f711] text-black font-semibold shadow-md ring-2 ring-[#c7f711] scale-[1.02]";
                         statusBadgeClass = "bg-black";
-                        statusBadgeLabel = "Selected";
+                        statusBadgeLabel = "● Selected";
                       } else if (isPassed) {
                         cardStyle = "bg-neutral-100 border-neutral-200 text-neutral-400 cursor-not-allowed opacity-50";
                         statusBadgeClass = "bg-neutral-400";
@@ -735,15 +1006,15 @@ export default function HomePage() {
                       } else if (isHeld) {
                         cardStyle = "bg-amber-50 border-amber-200 text-amber-900 cursor-not-allowed opacity-85";
                         statusBadgeClass = "bg-amber-500";
-                        statusBadgeLabel = "In Cart / Held";
+                        statusBadgeLabel = "⏳ Held";
                       } else if (isBooked) {
                         cardStyle = "bg-rose-50 border-rose-200 text-rose-800 cursor-not-allowed opacity-75";
                         statusBadgeClass = "bg-rose-500";
-                        statusBadgeLabel = "Booked";
+                        statusBadgeLabel = "✕ Booked";
                       } else if (isBlocked) {
                         cardStyle = "bg-slate-100 border-slate-200 text-slate-600 cursor-not-allowed opacity-75";
                         statusBadgeClass = "bg-slate-400";
-                        statusBadgeLabel = "Blocked";
+                        statusBadgeLabel = "⊘ Blocked";
                       }
 
                       const accessibleText = `${slot.timeLabel}, ${
@@ -774,11 +1045,11 @@ export default function HomePage() {
                             <span className="text-xs font-medium">{slot.timeLabel}</span>
                             <span
                               className={`w-2 h-2 rounded-full ${statusBadgeClass}`}
-                              title={statusBadgeLabel}
+                              aria-hidden="true"
                             />
                           </div>
                           <div className="flex items-center justify-between pt-1">
-                            <span className="text-[11px] opacity-80">
+                            <span className="text-[11px] font-medium opacity-85">
                               {statusBadgeLabel}
                             </span>
                             {slot.isPeak && slot.isAvailable && !isSelected && (
@@ -790,9 +1061,32 @@ export default function HomePage() {
                         </button>
                       );
                     })
+                  ) : !hasLoadedSlots || isRefreshingAvailability ? (
+                    <div className="col-span-2 sm:col-span-3 text-center py-8 text-xs text-neutral-500 flex items-center justify-center gap-2">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#0000ee]" />
+                      <span>Checking live court availability...</span>
+                    </div>
+                  ) : availabilityError ? (
+                    <div className="col-span-2 sm:col-span-3 text-center py-8 px-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-2">
+                      <p className="font-semibold">Unable to load court slots right now.</p>
+                      <button
+                        type="button"
+                        onClick={() => fetchSlots(false)}
+                        className="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                      >
+                        Retry Availability Check
+                      </button>
+                    </div>
                   ) : (
-                    <div className="col-span-3 text-center py-8 text-xs text-neutral-500">
-                      Loading available court slots...
+                    <div className="col-span-2 sm:col-span-3 text-center py-8 px-4 rounded-xl bg-neutral-50 border border-neutral-200 text-xs text-neutral-600 space-y-2">
+                      <p>No bookable slots found for {bookingDate} on this court.</p>
+                      <button
+                        type="button"
+                        onClick={() => fetchSlots(false)}
+                        className="px-3.5 py-1.5 rounded-lg border border-neutral-300 hover:bg-white font-semibold text-neutral-800"
+                      >
+                        Refresh Slots
+                      </button>
                     </div>
                   )}
                 </div>
@@ -843,11 +1137,14 @@ export default function HomePage() {
                 {/* Form fields */}
                 <form onSubmit={handleConfirmBooking} className="space-y-3 mb-4">
                   <div>
-                    <label className="text-[11px] text-white/70 block mb-1">Your Full Name *</label>
+                    <label htmlFor="checkout-cust-name" className="text-[11px] text-white/70 block mb-1">
+                      Your Full Name *
+                    </label>
                     <input
+                      id="checkout-cust-name"
                       type="text"
                       required
-                      placeholder="e.g. Anand Mehta"
+                      placeholder="Enter your full name"
                       value={custName}
                       onChange={(e) => setCustName(e.target.value)}
                       className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-xs text-white placeholder-white/40 focus:outline-none focus:border-[#c7f711]"
@@ -855,8 +1152,11 @@ export default function HomePage() {
                   </div>
 
                   <div>
-                    <label className="text-[11px] text-white/70 block mb-1">Mobile Phone (for Booking Confirmation) *</label>
+                    <label htmlFor="checkout-cust-phone" className="text-[11px] text-white/70 block mb-1">
+                      Mobile Phone (for Booking Confirmation) *
+                    </label>
                     <input
+                      id="checkout-cust-phone"
                       type="tel"
                       required
                       placeholder="10-digit mobile number"
@@ -866,9 +1166,9 @@ export default function HomePage() {
                     />
                   </div>
 
-                  <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-[11px] text-[#c7f711] flex items-center gap-2">
-                    <span>✓</span>
-                    <span>Pro paddles &amp; optic balls provided complimentary at reception.</span>
+                  <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-[11px] text-white/80 flex items-center gap-2">
+                    <span className="text-[#c7f711]">•</span>
+                    <span>Pay at reception upon arrival (Cash / Counter UPI). Ask desk staff regarding venue equipment availability.</span>
                   </div>
 
                   {bookingError && (
@@ -890,7 +1190,7 @@ export default function HomePage() {
                   <div className="flex justify-between text-xs font-semibold text-white pt-2">
                     <span>Total Amount</span>
                     <span className="text-lg text-[#c7f711]">
-                      ₹{selectedSlot ? selectedSlot.price : 400}
+                      {selectedSlot ? `₹${selectedSlot.price}` : "Select a slot"}
                     </span>
                   </div>
 
@@ -911,8 +1211,8 @@ export default function HomePage() {
                 </form>
               </div>
 
-              <p className="text-[11px] text-white/50 text-center leading-relaxed">
-                Protected by atomic reservation locking. Cancellations allowed up to 2 hours before slot start via your account.
+              <p className="text-[11px] text-white/60 text-center leading-relaxed">
+                Availability is revalidated on the server before confirmation. Cancellations allowed up to 2 hours before start via your account.
               </p>
             </div>
           </div>
@@ -929,10 +1229,10 @@ export default function HomePage() {
               Club Facilities
             </span>
             <h3 className="text-3xl sm:text-[44px] font-medium text-white tracking-tight leading-[1.15] capitalize">
-              Everything You Need To Play Better Pickleball
+              Everything You Need To Book &amp; Play Pickleball
             </h3>
             <p className="text-xs sm:text-sm text-white/70 mt-3 font-normal">
-              State-of-the-art championship courts, pro coaching, tournament gear, and a warm community.
+              Three dedicated courts in Gondal, live slot checks, flexible self-service booking, and on-site desk assistance.
             </p>
           </div>
 
@@ -944,7 +1244,7 @@ export default function HomePage() {
                 </div>
                 <h4 className="text-xl font-medium text-white mb-2">Court Reservations</h4>
                 <p className="text-xs text-white/70 leading-relaxed">
-                  Book premium tournament-grade courts with guaranteed zero double-bookings and instant 10-minute slot holds.
+                  Reserve 60-minute pickleball court slots online with temporary 10-minute checkout holds and server overlap validation.
                 </p>
               </div>
               <a href="#booking" className="text-xs text-[#c7f711] hover:underline pt-6 inline-flex items-center gap-1">
@@ -958,13 +1258,13 @@ export default function HomePage() {
                 <div className="w-12 h-12 rounded-xl bg-[#c7f711]/10 text-[#c7f711] flex items-center justify-center mb-6">
                   <User className="w-6 h-6" />
                 </div>
-                <h4 className="text-xl font-medium text-white mb-2">Pro Coaching Academy</h4>
+                <h4 className="text-xl font-medium text-white mb-2">Open Play &amp; Desk Booking</h4>
                 <p className="text-xs text-white/70 leading-relaxed">
-                  Private &amp; group training with certified instructors focused on dinking, third-shot drops, and rally defense.
+                  Book directly by the hour or arrange walk-in and group play with our reception team during configured operating hours ({arenaOpenTime}–{arenaCloseTime} IST).
                 </p>
               </div>
               <a href="#booking" className="text-xs text-[#c7f711] hover:underline pt-6 inline-flex items-center gap-1">
-                <span>View Programs</span>
+                <span>View Slots</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </a>
             </div>
@@ -974,9 +1274,9 @@ export default function HomePage() {
                 <div className="w-12 h-12 rounded-xl bg-[#c7f711]/10 text-[#c7f711] flex items-center justify-center mb-6">
                   <ShieldCheck className="w-6 h-6" />
                 </div>
-                <h4 className="text-xl font-medium text-white mb-2">Pro Gear &amp; Player Lounge</h4>
+                <h4 className="text-xl font-medium text-white mb-2">Pay at Venue &amp; Support</h4>
                 <p className="text-xs text-white/70 leading-relaxed">
-                  Complimentary tournament carbon-fiber paddles, optic balls, locker rooms, showers, and shaded spectator lounges.
+                  Settle court fees at reception via Cash or UPI on arrival, and inquire at the desk regarding equipment availability or membership plans.
                 </p>
               </div>
               <a
@@ -1001,10 +1301,10 @@ export default function HomePage() {
               Transparent Pricing
             </span>
             <h3 className="text-3xl sm:text-[44px] font-medium text-[#0d1a2c] tracking-tight leading-[1.15] capitalize">
-              Plans As Ambitious As Your Goals
+              Plans &amp; Hourly Court Rates
             </h3>
             <p className="text-xs sm:text-sm text-neutral-600 mt-3 font-normal">
-              Direct pricing with zero surprise charges. Pickleball court slots and memberships can be booked on-demand or monthly.
+              Direct hourly reservations are booked live online. Monthly and annual membership tiers are informational and enrolled in person at the venue desk.
             </p>
           </div>
 
@@ -1020,14 +1320,14 @@ export default function HomePage() {
                   Direct hourly reservation for casual rallies, matchplay, and friendly games.
                 </p>
                 <div className="text-4xl font-semibold text-[#0d1a2c] mb-6">
-                  ₹400 <span className="text-xs font-normal text-neutral-500">/ hour</span>
+                  ₹{standardRate} <span className="text-xs font-normal text-neutral-500">/ hour</span>
                 </div>
                 <ul className="space-y-3 text-xs text-neutral-600 border-t border-neutral-100 pt-6">
-                  <li className="flex items-center gap-2">✓ Full 60-minute tournament-spec court slot</li>
-                  <li className="flex items-center gap-2">✓ 10-minute temporary atomic slot lock</li>
-                  <li className="flex items-center gap-2">✓ Complimentary paddles &amp; balls at venue</li>
-                  <li className="flex items-center gap-2">✓ Shower &amp; changing room amenities</li>
-                  <li className="flex items-center gap-2">✓ Cancellation up to 2 hours before slot</li>
+                  <li className="flex items-center gap-2">✓ Full 60-minute court reservation</li>
+                  <li className="flex items-center gap-2">✓ 10-minute temporary checkout hold</li>
+                  <li className="flex items-center gap-2">✓ Pay at venue upon arrival (Cash / UPI)</li>
+                  <li className="flex items-center gap-2">✓ Self-service cancellation ≥ 2 hours prior</li>
+                  <li className="flex items-center gap-2">✓ Server-validated court availability</li>
                 </ul>
               </div>
               <a href="#booking" className="button-primary w-full text-center mt-8 no-underline">
@@ -1046,24 +1346,23 @@ export default function HomePage() {
                 </span>
                 <h4 className="text-2xl font-bold text-white mb-1">Monthly Club Member</h4>
                 <p className="text-xs text-white/70 mb-4">
-                  Dedicated monthly package for passionate regular players. Enrolled at reception.
+                  Informational monthly package for regular players. Terms confirmed and enrolled at reception.
                 </p>
                 <div className="text-4xl font-semibold text-[#c7f711] mb-4">
                   ₹3,500 <span className="text-xs font-normal text-white/70">/ month</span>
                 </div>
-                <p className="text-[11px] text-white/50 italic mb-4">
-                  * Memberships are registered in-person at the Boss Pickleball desk.
+                <p className="text-[11px] text-white/60 italic mb-4">
+                  * Online membership purchase is disabled; registration takes place in-person at the Boss Pickleball desk.
                 </p>
                 <ul className="space-y-3 text-xs text-white/80 border-t border-white/10 pt-4">
-                  <li className="flex items-center gap-2">✓ 10 court hours included every month</li>
-                  <li className="flex items-center gap-2">✓ Advance slot scheduling at venue</li>
-                  <li className="flex items-center gap-2">✓ Complimentary tournament paddles &amp; balls</li>
-                  <li className="flex items-center gap-2">✓ Dedicated locker &amp; shower amenities</li>
-                  <li className="flex items-center gap-2">✓ Inquire at reception desk for enrollment</li>
+                  <li className="flex items-center gap-2">• 10 court hours included per month</li>
+                  <li className="flex items-center gap-2">• Scheduled in coordination with venue desk</li>
+                  <li className="flex items-center gap-2">• Full details confirmed during enrollment</li>
+                  <li className="flex items-center gap-2">• Visit venue reception to apply</li>
                 </ul>
               </div>
               <a href="#contact" className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-3 rounded-full text-xs font-bold text-center mt-8 no-underline transition-all block">
-                Inquire at Reception Desk
+                Venue Desk Information
               </a>
             </div>
 
@@ -1075,24 +1374,23 @@ export default function HomePage() {
                 </span>
                 <h4 className="text-2xl font-bold text-[#0d1a2c] mb-1">Annual VIP Member</h4>
                 <p className="text-xs text-neutral-500 mb-4">
-                  Full 365-day package for competitive regular players. Enrolled at reception.
+                  Informational 365-day club tier for regular players. Terms confirmed and enrolled at reception.
                 </p>
                 <div className="text-4xl font-semibold text-[#0d1a2c] mb-4">
                   ₹24,000 <span className="text-xs font-normal text-neutral-500">/ year</span>
                 </div>
-                <p className="text-[11px] text-neutral-400 italic mb-4">
-                  * Annual memberships are registered in-person at the Boss Pickleball desk.
+                <p className="text-[11px] text-neutral-500 italic mb-4">
+                  * Online membership purchase is disabled; registration takes place in-person at the Boss Pickleball desk.
                 </p>
                 <ul className="space-y-3 text-xs text-neutral-600 border-t border-neutral-100 pt-4">
-                  <li className="flex items-center gap-2">✓ Extended off-peak court hours</li>
-                  <li className="flex items-center gap-2">✓ Preferred court reservations</li>
-                  <li className="flex items-center gap-2">✓ Permanent locker allocation</li>
-                  <li className="flex items-center gap-2">✓ Guest player passes</li>
-                  <li className="flex items-center gap-2">✓ Inquire at reception desk for enrollment</li>
+                  <li className="flex items-center gap-2">• Extended off-peak court access</li>
+                  <li className="flex items-center gap-2">• Coordinated court booking options</li>
+                  <li className="flex items-center gap-2">• Full terms confirmed at reception desk</li>
+                  <li className="flex items-center gap-2">• Visit venue reception to apply</li>
                 </ul>
               </div>
               <a href="#contact" className="bg-neutral-900 hover:bg-neutral-800 text-white px-4 py-3 rounded-full text-xs font-bold text-center mt-8 no-underline transition-all block">
-                Inquire at Reception Desk
+                Venue Desk Information
               </a>
             </div>
           </div>
@@ -1196,17 +1494,17 @@ export default function HomePage() {
           <div>
             <h5 className="text-xs font-semibold uppercase tracking-wider text-white mb-4">Arena Schedule &amp; Venue</h5>
             <p className="text-xs text-white/70 leading-relaxed">
-              Monday – Sunday <br />
-              6:00 AM – 11:00 PM <br />
+              Hours ({bookingDate}): <br />
+              {configuredHoursText} <br />
               Boss Pickleball, Gondal, Gujarat <br />
-              <span className="text-white/40 mt-1 block italic">[Venue Phone: Pending Owner Setup]</span>
+              <span className="text-white/50 mt-1 block italic">[Venue Phone: Pending Owner Setup]</span>
             </p>
           </div>
         </div>
 
         <div className="max-w-[1200px] mx-auto w-full pt-8 flex flex-col sm:flex-row items-center justify-between text-[11px] text-white/50 gap-4">
           <p>© 2026 Boss Pickleball. All rights reserved.</p>
-          <p>Tournament Venue • Courts 1, 2, and 3 • Gondal, Gujarat</p>
+          <p>Pickleball Venue • Courts 1, 2, and 3 • Gondal, Gujarat</p>
         </div>
       </footer>
 
@@ -1214,14 +1512,24 @@ export default function HomePage() {
       {/* MODAL 1: MY BOOKINGS (SECURE CUSTOMER RESERVATIONS & CANCELLATION) */}
       {/* ========================================================================= */}
       {showLookupModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="lookup-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+        >
           <div className="bg-[#0d141f] border border-white/15 rounded-3xl p-6 sm:p-8 max-w-lg w-full text-white">
             <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
               <div className="flex items-center gap-2">
                 <Search className="w-5 h-5 text-[#c7f711]" />
-                <h3 className="font-bold text-base text-white">My Reservations</h3>
+                <h3 id="lookup-modal-title" className="font-bold text-base text-white">My Reservations</h3>
               </div>
-              <button onClick={() => setShowLookupModal(false)} className="text-white/50 hover:text-white">
+              <button
+                type="button"
+                onClick={() => setShowLookupModal(false)}
+                aria-label="Close my reservations modal"
+                className="text-white/50 hover:text-white"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1279,11 +1587,13 @@ export default function HomePage() {
                           </div>
                           <div className="text-[11px] text-white/60 mt-0.5">
                             {new Date(b.startTime).toLocaleString("en-IN", {
+                              timeZone: "Asia/Kolkata",
                               month: "short",
                               day: "numeric",
                               hour: "2-digit",
                               minute: "2-digit",
-                            })}
+                              hour12: true,
+                            })} IST
                           </div>
                           <span className="text-[10px] text-white/40 block mt-0.5 font-mono">
                             Ref: #{b.id.slice(-6).toUpperCase()} • Status: {b.status}

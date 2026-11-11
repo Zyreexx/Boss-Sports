@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authDb } from "@/lib/auth/authDb";
+import { setSessionCookie } from "@/lib/auth/serverAuth";
+import {
+  callDjangoApi,
+  getBackendMisconfiguredResponse,
+  isDjangoBackendConfigured,
+  isLocalJsonFallbackDisabled,
+  toProxyJsonResponse,
+} from "@/lib/backend/djangoClient";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +21,29 @@ export async function POST(req: NextRequest) {
         { success: false, error: "Identifier (email/phone) and password are required" },
         { status: 400 }
       );
+    }
+
+    if (isDjangoBackendConfigured()) {
+      const upstream = await callDjangoApi({
+        path: "/api/auth/login/",
+        method: "POST",
+        body: { identifier, password },
+      });
+
+      if (!upstream.ok || !upstream.data?.user) {
+        return toProxyJsonResponse(upstream);
+      }
+
+      const response = NextResponse.json(upstream.data, {
+        status: upstream.status,
+        headers: { "Cache-Control": "no-store" },
+      });
+      setSessionCookie(response, upstream.data.user, req);
+      return response;
+    }
+
+    if (isLocalJsonFallbackDisabled()) {
+      return getBackendMisconfiguredResponse();
     }
 
     const result = authDb.authenticate(identifier, password);
@@ -33,18 +64,7 @@ export async function POST(req: NextRequest) {
       message: `Welcome, ${result.user.name}! Assigned role: ${result.user.role}`,
     });
 
-    // Set cookie for session persistence
-    response.cookies.set("boss_session", JSON.stringify({
-      id: result.user.id,
-      name: result.user.name,
-      role: result.user.role,
-      token: result.token,
-    }), {
-      path: "/",
-      httpOnly: false,
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    });
-
+    setSessionCookie(response, result.user, req);
     return response;
   } catch (error: any) {
     return NextResponse.json(
@@ -53,4 +73,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { enforceRole } from "@/lib/auth/serverAuth";
+import {
+  callDjangoApi,
+  getBackendMisconfiguredResponse,
+  isDjangoBackendConfigured,
+  isLocalJsonFallbackDisabled,
+  toProxyJsonResponse,
+} from "@/lib/backend/djangoClient";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +32,26 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Sanitize filename
+    if (isDjangoBackendConfigured()) {
+      const upstream = await callDjangoApi({
+        path: "/api/upload/",
+        method: "POST",
+        body: {
+          filename: file.name || "upload.jpg",
+          contentType: file.type || "application/octet-stream",
+          dataBase64: buffer.toString("base64"),
+        },
+        actor: auth.actor,
+        timeoutMs: 25_000,
+      });
+      return toProxyJsonResponse(upstream);
+    }
+
+    if (isLocalJsonFallbackDisabled()) {
+      return getBackendMisconfiguredResponse();
+    }
+
+    // Local development fallback only (when DJANGO_API_URL is unset and not in production)
     const ext = path.extname(file.name) || (file.type.startsWith("video") ? ".mp4" : ".jpg");
     const baseName = path.basename(file.name, ext).replace(/[^a-zA-Z0-9_-]/g, "_");
     const uniqueFileName = `${baseName}_${Date.now()}${ext}`;

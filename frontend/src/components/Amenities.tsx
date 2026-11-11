@@ -18,23 +18,23 @@ export default function Amenities({ activeSport }: AmenitiesProps = {}) {
   const pickleballFeatures = [
     {
       icon: <Layers className="w-5 h-5 text-[#00A852]" />,
-      title: "Tournament-Grade Cushion Turf",
-      desc: "USAPA approved multi-layer acrylic surface engineered to reduce joint fatigue and optimize true ball bounce across all 3 courts.",
+      title: "3 Dedicated Courts",
+      desc: "Dedicated indoor pickleball courts (Courts 1, 2, and 3) maintained for consistent everyday play.",
     },
     {
       icon: <Zap className="w-5 h-5 text-[#00A852]" />,
-      title: "Anti-Glare Pro Floodlights",
-      desc: "Daylight-balanced 500+ lux overhead stadium fixtures for shadowless evening and night play.",
+      title: "Overhead Court Lighting",
+      desc: "Lit courts supporting morning through late-evening sessions daily from 06:00 to 23:00 IST.",
     },
     {
       icon: <Shield className="w-5 h-5 text-[#00A852]" />,
-      title: "Zero Double-Booking Guarantee",
-      desc: "Synchronized single source of truth calendar connecting phone, counter, and online reservations with 10-minute hold lock.",
+      title: "Shared Venue Schedule",
+      desc: "Server-checked overlap protection across online bookings, temporary 10-minute checkout holds, and counter reservations.",
     },
     {
       icon: <Users className="w-5 h-5 text-[#00A852]" />,
-      title: "Complimentary Pro Paddles",
-      desc: "Official tournament-spec carbon-fiber paddles and optic balls provided completely complimentary with every court booking.",
+      title: "Reception Desk Support",
+      desc: "Pay on arrival via cash or counter UPI, and manage eligible cancellations at least 2 hours before start time.",
     },
   ];
 

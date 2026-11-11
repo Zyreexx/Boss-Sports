@@ -123,11 +123,10 @@ export default function AboutSection({ activeSport }: AboutSectionProps = {}) {
 
               {/* Title in vibrant green matching Reference */}
               <h3 className="text-xl sm:text-2xl font-black text-[#00E073] mb-3 tracking-tight">
-                Premium Indoor Courts
+                Dedicated Indoor Courts
               </h3>
               <p className="text-xs sm:text-[13px] text-white/80 leading-relaxed font-normal">
-                Professionally maintained courts with optimized lighting and climate control for
-                year-round play.
+                Regularly maintained pickleball courts with overhead lighting for daily morning and evening play.
               </p>
             </div>
 
@@ -169,16 +168,16 @@ export default function AboutSection({ activeSport }: AboutSectionProps = {}) {
               />
             </motion.div>
             
-            {/* Center Floating Frosted Glass Pill matching "Private Group Lessons" */}
+            {/* Center Floating Frosted Glass Pill */}
             <div className="absolute inset-0 flex items-center justify-center p-4">
               <motion.a
-                href="#booking-section"
+                href="#booking"
                 whileHover={{ scale: 1.06, y: -2 }}
                 whileTap={{ scale: 0.96 }}
                 transition={{ type: "spring", stiffness: 400, damping: 25 }}
                 className="px-5 py-2.5 rounded-full bg-white/95 hover:bg-white text-neutral-900 font-extrabold text-xs tracking-tight backdrop-blur-md shadow-xl transition-colors border border-[#00E073]/40"
               >
-                Private Group Lessons
+                Open Court Sessions
               </motion.a>
             </div>
           </motion.div>
@@ -207,7 +206,7 @@ export default function AboutSection({ activeSport }: AboutSectionProps = {}) {
           </motion.div>
         </div>
 
-        {/* Impact in Numbers Section in Soft White & Green Canvas */}
+        {/* Configured Venue Overview */}
         <motion.div
           initial={{ opacity: 0, y: 25 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -216,47 +215,47 @@ export default function AboutSection({ activeSport }: AboutSectionProps = {}) {
           className="p-8 sm:p-12 rounded-[28px] bg-[#F4FBF6] border-2 border-[#00E073]/30 text-center shadow-sm"
         >
           <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-widest text-[#00A852] mb-8">
-            Our Impact in Numbers
+            Venue At A Glance
           </h4>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-12">
-            {/* Stat 1 */}
+            {/* Fact 1 */}
             <div>
               <div className="text-3xl sm:text-4xl lg:text-[46px] font-black text-neutral-950 tracking-tight">
-                <Counter target={3} suffix=".2K+" />
+                <Counter target={3} suffix="" />
               </div>
               <p className="text-xs sm:text-[13px] font-bold text-neutral-600 mt-1.5">
-                Club Members
+                Active Courts
               </p>
             </div>
 
-            {/* Stat 2 */}
+            {/* Fact 2 */}
             <div>
               <div className="text-3xl sm:text-4xl lg:text-[46px] font-black text-neutral-950 tracking-tight">
-                <Counter target={240} suffix="+" />
+                06:00–23:00
               </div>
               <p className="text-xs sm:text-[13px] font-bold text-neutral-600 mt-1.5">
-                Matches Played Monthly
+                Daily Hours (IST)
               </p>
             </div>
 
-            {/* Stat 3 */}
+            {/* Fact 3 */}
             <div>
               <div className="text-3xl sm:text-4xl lg:text-[46px] font-black text-neutral-950 tracking-tight">
-                <Counter target={9} suffix="+" />
+                ₹400
               </div>
               <p className="text-xs sm:text-[13px] font-bold text-neutral-600 mt-1.5">
-                Events Hosted
+                Standard Rate / Hr
               </p>
             </div>
 
-            {/* Stat 4 */}
+            {/* Fact 4 */}
             <div>
               <div className="text-3xl sm:text-4xl lg:text-[46px] font-black text-neutral-950 tracking-tight">
-                <Counter target={99} suffix="%" />
+                10 min
               </div>
               <p className="text-xs sm:text-[13px] font-bold text-neutral-600 mt-1.5">
-                Member Satisfaction
+                Checkout Slot Hold
               </p>
             </div>
           </div>

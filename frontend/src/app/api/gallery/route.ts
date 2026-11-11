@@ -1,12 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickleballDb } from "@/lib/db/pickleballDb";
-import { enforceRole } from "@/lib/auth/serverAuth";
+import { enforceRole, getAuthenticatedActor } from "@/lib/auth/serverAuth";
+import {
+  callDjangoApi,
+  getBackendMisconfiguredResponse,
+  isDjangoBackendConfigured,
+  isLocalJsonFallbackDisabled,
+  toProxyJsonResponse,
+} from "@/lib/backend/djangoClient";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/gallery (Public - returns gallery items)
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    if (isDjangoBackendConfigured()) {
+      const actor = getAuthenticatedActor(req);
+      const upstream = await callDjangoApi({
+        path: "/api/gallery-items/",
+        method: "GET",
+        actor,
+      });
+      return toProxyJsonResponse(upstream);
+    }
+
+    if (isLocalJsonFallbackDisabled()) {
+      return getBackendMisconfiguredResponse();
+    }
+
     const items = pickleballDb.getGalleryItems();
     return NextResponse.json({ success: true, items });
   } catch (error: any) {
@@ -33,6 +54,30 @@ export async function POST(req: NextRequest) {
         { success: false, error: "Title and media source (photo URL/poster) are required" },
         { status: 400 }
       );
+    }
+
+    if (isDjangoBackendConfigured()) {
+      const upstream = await callDjangoApi({
+        path: "/api/gallery-items/",
+        method: "POST",
+        body: {
+          type: type || "image",
+          title,
+          category: category || "matchplay",
+          tag: tag || "",
+          src,
+          videoSrc: videoSrc || undefined,
+          aspect: aspect || "tall",
+          caption: caption || "",
+          duration: duration || undefined,
+        },
+        actor: auth.actor,
+      });
+      return toProxyJsonResponse(upstream);
+    }
+
+    if (isLocalJsonFallbackDisabled()) {
+      return getBackendMisconfiguredResponse();
     }
 
     const newItem = pickleballDb.addGalleryItem(
@@ -81,6 +126,20 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    if (isDjangoBackendConfigured()) {
+      const upstream = await callDjangoApi({
+        path: "/api/gallery-items/",
+        method: "PATCH",
+        body: { id, ...updates },
+        actor: auth.actor,
+      });
+      return toProxyJsonResponse(upstream);
+    }
+
+    if (isLocalJsonFallbackDisabled()) {
+      return getBackendMisconfiguredResponse();
+    }
+
     const updated = pickleballDb.updateGalleryItem(id, updates, auth.actor);
 
     return NextResponse.json({
@@ -112,6 +171,19 @@ export async function DELETE(req: NextRequest) {
         { success: false, error: "id is required" },
         { status: 400 }
       );
+    }
+
+    if (isDjangoBackendConfigured()) {
+      const upstream = await callDjangoApi({
+        path: `/api/gallery-items/?id=${encodeURIComponent(id)}`,
+        method: "DELETE",
+        actor: auth.actor,
+      });
+      return toProxyJsonResponse(upstream);
+    }
+
+    if (isLocalJsonFallbackDisabled()) {
+      return getBackendMisconfiguredResponse();
     }
 
     pickleballDb.deleteGalleryItem(id, auth.actor);

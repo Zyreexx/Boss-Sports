@@ -1,37 +1,71 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickleballDb } from "@/lib/db/pickleballDb";
 import { enforceRole } from "@/lib/auth/serverAuth";
+import {
+  callDjangoApi,
+  getBackendMisconfiguredResponse,
+  isDjangoBackendConfigured,
+  isLocalJsonFallbackDisabled,
+  toProxyJsonResponse,
+} from "@/lib/backend/djangoClient";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
     const auth = enforceRole(req, ["OWNER"]);
-    if (!auth.authorized) {
+    if (!auth.authorized || !auth.actor) {
       return auth.response!;
+    }
+
+    if (isDjangoBackendConfigured()) {
+      const upstream = await callDjangoApi({
+        path: "/api/admin/reports/",
+        method: "GET",
+        actor: auth.actor,
+      });
+      return toProxyJsonResponse(upstream, {
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+      });
+    }
+
+    if (isLocalJsonFallbackDisabled()) {
+      return getBackendMisconfiguredResponse();
     }
 
     const pickleball = pickleballDb.getPickleballReport();
 
-    const grandTotalRevenue = pickleball.totalRevenue || 0;
+    const realizedRevenue = pickleball.realizedRevenue ?? pickleball.totalRevenue ?? 0;
+    const grossBookedValue = pickleball.grossBookedValue ?? 0;
+    const pendingVenuePayment = pickleball.pendingVenuePayment ?? 0;
     const totalCashReconciliation = pickleball.cashRevenue || 0;
     const totalUpiReconciliation = pickleball.upiCounterRevenue || 0;
     const totalOnlineReconciliation = pickleball.onlineRevenue || 0;
 
-    return NextResponse.json({
-      success: true,
-      timestamp: new Date().toISOString(),
-      summary: {
-        grandTotalRevenue,
-        totalCashReconciliation,
-        totalUpiReconciliation,
-        totalOnlineReconciliation,
-        totalBookings: pickleball.totalBookings || 0,
-        confirmedBookings: pickleball.totalBookings || 0,
-        activeHolds: pickleball.activeHoldsCount || 0,
+    return NextResponse.json(
+      {
+        success: true,
+        timestamp: new Date().toISOString(),
+        summary: {
+          grandTotalRevenue: realizedRevenue,
+          realizedRevenue,
+          grossBookedValue,
+          pendingVenuePayment,
+          totalCashReconciliation,
+          totalUpiReconciliation,
+          totalOnlineReconciliation,
+          totalBookings: pickleball.totalBookings || 0,
+          confirmedBookings: pickleball.totalBookings || 0,
+          activeHolds: pickleball.activeHoldsCount || 0,
+        },
+        pickleballDatabase: pickleball,
       },
-      pickleballDatabase: pickleball,
-    });
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      }
+    );
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || "Failed to generate audit report" },

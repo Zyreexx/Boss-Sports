@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickleballDb } from "@/lib/db/pickleballDb";
-import { enforceRole } from "@/lib/auth/serverAuth";
+import { enforceRole, getAuthenticatedActor } from "@/lib/auth/serverAuth";
+import {
+  callDjangoApi,
+  getBackendMisconfiguredResponse,
+  isDjangoBackendConfigured,
+  isLocalJsonFallbackDisabled,
+  toProxyJsonResponse,
+} from "@/lib/backend/djangoClient";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +16,21 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const includeInactive = searchParams.get("all") === "true";
+
+    if (isDjangoBackendConfigured()) {
+      const actor = getAuthenticatedActor(req);
+      const upstream = await callDjangoApi({
+        path: `/api/pickleball/courts/${includeInactive ? "?all=true" : ""}`,
+        method: "GET",
+        actor,
+      });
+      return toProxyJsonResponse(upstream);
+    }
+
+    if (isLocalJsonFallbackDisabled()) {
+      return getBackendMisconfiguredResponse();
+    }
+
     const courts = pickleballDb.getAllCourts(includeInactive);
     return NextResponse.json({ success: true, courts });
   } catch (error: any) {
@@ -19,16 +41,45 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/pickleball/courts (Owner & Staff ONLY)
+// POST /api/pickleball/courts (Owner ONLY)
 export async function POST(req: NextRequest) {
   try {
-    const auth = enforceRole(req, ["OWNER", "EMPLOYEE"]);
+    const auth = enforceRole(req, ["OWNER"]);
     if (!auth.authorized || !auth.actor) {
       return auth.response!;
     }
 
     const body = await req.json();
     const { name, surfaceType, isIndoor, basePricePerHour } = body;
+
+    if (
+      basePricePerHour !== undefined &&
+      (!Number.isFinite(Number(basePricePerHour)) || Number(basePricePerHour) <= 0)
+    ) {
+      return NextResponse.json(
+        { success: false, error: "basePricePerHour must be a positive number" },
+        { status: 400 }
+      );
+    }
+
+    if (isDjangoBackendConfigured()) {
+      const upstream = await callDjangoApi({
+        path: "/api/pickleball/courts/",
+        method: "POST",
+        body: {
+          name,
+          surfaceType: surfaceType || "Pickleball Court",
+          isIndoor: isIndoor ?? true,
+          basePricePerHour: basePricePerHour ? Number(basePricePerHour) : 400,
+        },
+        actor: auth.actor,
+      });
+      return toProxyJsonResponse(upstream);
+    }
+
+    if (isLocalJsonFallbackDisabled()) {
+      return getBackendMisconfiguredResponse();
+    }
 
     const newCourt = pickleballDb.addCourt(
       {
@@ -53,7 +104,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PATCH /api/pickleball/courts (Owner & Staff ONLY)
+// PATCH /api/pickleball/courts (Owner: full config; Staff: isActive maintenance toggle ONLY)
 export async function PATCH(req: NextRequest) {
   try {
     const auth = enforceRole(req, ["OWNER", "EMPLOYEE"]);
@@ -62,7 +113,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { courtId, ...updates } = body;
+    const { courtId, ...rawUpdates } = body;
 
     if (!courtId) {
       return NextResponse.json(
@@ -71,7 +122,76 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const updated = pickleballDb.updateCourt(courtId, updates, auth.actor);
+    let safeUpdates: {
+      name?: string;
+      basePricePerHour?: number;
+      surfaceType?: string;
+      isIndoor?: boolean;
+      isActive?: boolean;
+    };
+
+    if (auth.actor.role !== "OWNER") {
+      const forbiddenKeys = Object.keys(rawUpdates).filter(
+        (key) => key !== "isActive" && rawUpdates[key] !== undefined
+      );
+      if (forbiddenKeys.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Access denied: only the owner can modify court pricing or configuration.",
+          },
+          { status: 403 }
+        );
+      }
+
+      if (typeof rawUpdates.isActive !== "boolean") {
+        return NextResponse.json(
+          { success: false, error: "isActive boolean is required" },
+          { status: 400 }
+        );
+      }
+
+      safeUpdates = { isActive: rawUpdates.isActive };
+    } else {
+      if (
+        rawUpdates.basePricePerHour !== undefined &&
+        (!Number.isFinite(Number(rawUpdates.basePricePerHour)) ||
+          Number(rawUpdates.basePricePerHour) <= 0)
+      ) {
+        return NextResponse.json(
+          { success: false, error: "basePricePerHour must be a positive number" },
+          { status: 400 }
+        );
+      }
+
+      safeUpdates = {
+        ...(rawUpdates.name !== undefined ? { name: String(rawUpdates.name) } : {}),
+        ...(rawUpdates.basePricePerHour !== undefined
+          ? { basePricePerHour: Number(rawUpdates.basePricePerHour) }
+          : {}),
+        ...(rawUpdates.surfaceType !== undefined
+          ? { surfaceType: String(rawUpdates.surfaceType) }
+          : {}),
+        ...(rawUpdates.isIndoor !== undefined ? { isIndoor: Boolean(rawUpdates.isIndoor) } : {}),
+        ...(rawUpdates.isActive !== undefined ? { isActive: Boolean(rawUpdates.isActive) } : {}),
+      };
+    }
+
+    if (isDjangoBackendConfigured()) {
+      const upstream = await callDjangoApi({
+        path: "/api/pickleball/courts/",
+        method: "PATCH",
+        body: { courtId, ...safeUpdates },
+        actor: auth.actor,
+      });
+      return toProxyJsonResponse(upstream);
+    }
+
+    if (isLocalJsonFallbackDisabled()) {
+      return getBackendMisconfiguredResponse();
+    }
+
+    const updated = pickleballDb.updateCourt(courtId, safeUpdates, auth.actor);
 
     return NextResponse.json({
       success: true,
@@ -86,10 +206,10 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-// DELETE /api/pickleball/courts (Owner & Staff ONLY)
+// DELETE /api/pickleball/courts (Owner ONLY)
 export async function DELETE(req: NextRequest) {
   try {
-    const auth = enforceRole(req, ["OWNER", "EMPLOYEE"]);
+    const auth = enforceRole(req, ["OWNER"]);
     if (!auth.authorized || !auth.actor) {
       return auth.response!;
     }
@@ -102,6 +222,19 @@ export async function DELETE(req: NextRequest) {
         { success: false, error: "courtId is required" },
         { status: 400 }
       );
+    }
+
+    if (isDjangoBackendConfigured()) {
+      const upstream = await callDjangoApi({
+        path: `/api/pickleball/courts/?courtId=${encodeURIComponent(courtId)}`,
+        method: "DELETE",
+        actor: auth.actor,
+      });
+      return toProxyJsonResponse(upstream);
+    }
+
+    if (isLocalJsonFallbackDisabled()) {
+      return getBackendMisconfiguredResponse();
     }
 
     pickleballDb.deleteCourt(courtId, auth.actor);

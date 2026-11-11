@@ -28,6 +28,7 @@ export default function CustomerProfilePage() {
 
   const [bookings, setBookings] = useState<any[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(false);
+  const [bookingsError, setBookingsError] = useState<string | null>(null);
   const [cancelStatus, setCancelStatus] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
@@ -37,20 +38,13 @@ export default function CustomerProfilePage() {
 
   const checkAuth = async () => {
     try {
-      const res = await fetch("/api/auth/me");
+      const res = await fetch("/api/auth/me", { cache: "no-store" });
       const data = await res.json();
       if (data.authenticated && data.user) {
         setCurrentUser(data.user);
-        fetchCustomerBookings(data.user.phone);
+        fetchCustomerBookings();
       } else {
-        const stored = localStorage.getItem("boss_current_user");
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          setCurrentUser(parsed);
-          if (parsed.phone) {
-            fetchCustomerBookings(parsed.phone);
-          }
-        }
+        setCurrentUser(null);
       }
     } catch (e) {
       console.error(e);
@@ -68,17 +62,25 @@ export default function CustomerProfilePage() {
     setBookings([]);
   };
 
-  const fetchCustomerBookings = async (phone: string) => {
-    if (!phone) return;
+  const fetchCustomerBookings = async () => {
     setLoadingBookings(true);
+    setBookingsError(null);
     try {
-      const res = await fetch(`/api/pickleball/bookings?phone=${encodeURIComponent(phone)}`);
-      const data = await res.json();
-      if (data.success && data.bookings) {
-        setBookings(data.bookings);
+      const res = await fetch(`/api/pickleball/bookings`, { cache: "no-store" });
+      if (res.status === 401) {
+        localStorage.removeItem("boss_current_user");
+        setCurrentUser(null);
+        setBookings([]);
+        return;
       }
-    } catch (e) {
-      console.error("Failed to load customer bookings", e);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.bookings) {
+        setBookings(data.bookings);
+      } else {
+        setBookingsError(data.error || "Unable to load your bookings right now. Please try again.");
+      }
+    } catch {
+      setBookingsError("Unable to reach booking server to verify your reservations.");
     } finally {
       setLoadingBookings(false);
     }
@@ -89,12 +91,13 @@ export default function CustomerProfilePage() {
     const nowMs = Date.now();
     const diffHours = (startMs - nowMs) / (1000 * 60 * 60);
 
-    if (diffHours < 2 && diffHours > 0) {
-      alert("Self-service cancellation is locked within 2 hours of game time. Please contact desk staff at +91 98251 00000 for emergency assistance.");
+    if (diffHours < 2) {
+      alert("Self-service cancellation is locked within 2 hours of game time. Please contact desk staff at reception (Boss Pickleball, Gondal) for assistance.");
       return;
     }
 
-    if (!confirm(`Are you sure you want to cancel your reservation for ${booking.courtName} on ${new Date(booking.startTime).toLocaleDateString()}?`)) {
+    const istDateStr = new Date(booking.startTime).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
+    if (!confirm(`Are you sure you want to cancel your reservation for ${booking.courtName} on ${istDateStr}?`)) {
       return;
     }
 
@@ -114,9 +117,7 @@ export default function CustomerProfilePage() {
       const data = await res.json();
       if (data.success) {
         setCancelStatus("✓ Booking successfully cancelled.");
-        if (currentUser?.phone) {
-          fetchCustomerBookings(currentUser.phone);
-        }
+        fetchCustomerBookings();
       } else {
         setCancelStatus(`Error: ${data.error || "Failed to cancel"}`);
       }
@@ -143,7 +144,7 @@ export default function CustomerProfilePage() {
     <div className="min-h-screen bg-[#070b10] text-[#f0f4f8] antialiased selection:bg-[#c7f711] selection:text-black">
       {/* Top Navigation */}
       <header className="border-b border-white/10 bg-[#0d141f]/90 backdrop-blur sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 min-h-16 py-2.5 flex flex-wrap items-center justify-between gap-3">
           <Link href="/" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full overflow-hidden border border-[#c7f711] shadow-[0_0_15px_rgba(199,247,17,0.3)] bg-white">
               <Image
@@ -266,8 +267,10 @@ export default function CustomerProfilePage() {
                   </Link>
 
                   <button
-                    onClick={() => fetchCustomerBookings(currentUser.phone)}
+                    type="button"
+                    onClick={() => fetchCustomerBookings()}
                     disabled={loadingBookings}
+                    aria-label="Refresh Bookings"
                     className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-all"
                     title="Refresh Bookings"
                   >
@@ -307,10 +310,10 @@ export default function CustomerProfilePage() {
 
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
                   <div className="text-[11px] text-white/50 uppercase tracking-wider font-semibold">
-                    Equipment Status
+                    Cancellation Window
                   </div>
                   <div className="text-xs font-bold text-[#c7f711] mt-2">
-                    ✓ Pro Paddles Complimentary
+                    Self-service ≥ 2 hrs prior
                   </div>
                 </div>
               </div>
@@ -353,6 +356,19 @@ export default function CustomerProfilePage() {
                 </span>
               </div>
 
+              {bookingsError && (
+                <div className="p-4 rounded-2xl bg-red-500/15 border border-red-500/40 text-xs text-red-200 flex items-center justify-between gap-3">
+                  <span>{bookingsError}</span>
+                  <button
+                    type="button"
+                    onClick={fetchCustomerBookings}
+                    className="px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 font-semibold text-white shrink-0"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+
               {loadingBookings ? (
                 <div className="p-12 text-center text-xs text-white/40 bg-[#0d141f] rounded-3xl border border-white/10">
                   <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[#c7f711]" />
@@ -364,15 +380,23 @@ export default function CustomerProfilePage() {
                     const start = new Date(b.startTime);
                     const end = new Date(b.endTime);
                     const dateFormatted = start.toLocaleDateString("en-IN", {
+                      timeZone: "Asia/Kolkata",
                       weekday: "short",
                       month: "short",
                       day: "numeric",
                       year: "numeric",
                     });
-                    const timeFormatted = `${start.toLocaleTimeString([], {
+                    const timeFormatted = `${start.toLocaleTimeString("en-IN", {
+                      timeZone: "Asia/Kolkata",
                       hour: "2-digit",
                       minute: "2-digit",
-                    })} - ${end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+                      hour12: true,
+                    })} - ${end.toLocaleTimeString("en-IN", {
+                      timeZone: "Asia/Kolkata",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: true,
+                    })} IST`;
 
                     return (
                       <div
@@ -475,7 +499,7 @@ export default function CustomerProfilePage() {
                             {b.courtName || "Court 1"}
                           </td>
                           <td className="p-3.5 text-white/70">
-                            {new Date(b.startTime).toLocaleDateString()} • {new Date(b.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            {new Date(b.startTime).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })} • {new Date(b.startTime).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })} IST
                           </td>
                           <td className="p-3.5 font-bold text-[#c7f711]">
                             ₹{b.totalPrice || 400}
@@ -507,9 +531,7 @@ export default function CustomerProfilePage() {
         onClose={() => setShowLoginModal(false)}
         onLoginSuccess={(user) => {
           setCurrentUser(user);
-          if (user.phone) {
-            fetchCustomerBookings(user.phone);
-          }
+          fetchCustomerBookings();
         }}
       />
     </div>

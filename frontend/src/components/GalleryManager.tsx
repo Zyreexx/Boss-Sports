@@ -35,15 +35,13 @@ export interface GalleryItem {
   createdAt?: string;
 }
 
-const PRESET_ASSETS = [
-  { label: "Selkirk Pro Paddles", type: "image", src: "/images/gallery-grid-full.jpg" },
+const PRESET_ASSETS: Array<{ label: string; type: "image" | "video"; src: string; videoSrc?: string }> = [
+  { label: "Pro Carbon Paddles", type: "image", src: "/images/gallery-grid-full.jpg" },
   { label: "Court Singles Rally", type: "image", src: "/images/gallery-reference-1.jpg" },
   { label: "Paddle Grip & Net", type: "image", src: "/images/gallery-reference-2.jpg" },
   { label: "High Smash Rally", type: "image", src: "/images/gallery-action-scroll.jpg" },
   { label: "Kitchen Dink Action", type: "image", src: "/images/hero-player.jpg" },
   { label: "Arena Stadium Lights", type: "image", src: "/images/court-wide.jpg" },
-  { label: "Sample Video: Ocean Rally", type: "video", src: "/images/hero-player.jpg", videoSrc: "https://vjs.zencdn.net/v/oceans.mp4" },
-  { label: "Sample Video: Motion Clip", type: "video", src: "/images/athletes-team.jpg", videoSrc: "https://vjs.zencdn.net/v/oceans.mp4" },
 ];
 
 export default function GalleryManager({
@@ -69,7 +67,7 @@ export default function GalleryManager({
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<"matchplay" | "gear" | "training" | "tournament">("matchplay");
   const [src, setSrc] = useState("/images/hero-player.jpg");
-  const [videoSrc, setVideoSrc] = useState("https://vjs.zencdn.net/v/oceans.mp4");
+  const [videoSrc, setVideoSrc] = useState("");
   const [aspect, setAspect] = useState<"tall" | "square" | "standard">("tall");
   const [caption, setCaption] = useState("");
   const [duration, setDuration] = useState("");
@@ -89,9 +87,13 @@ export default function GalleryManager({
   const fetchGallery = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/gallery");
-      const data = await res.json();
-      if (data.success && Array.isArray(data.items)) {
+      const res = await fetch("/api/gallery", { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        setMsg({ type: "error", text: data.error || "Failed to load gallery items from database" });
+        return;
+      }
+      if (Array.isArray(data.items)) {
         setItems(data.items);
       }
     } catch (err: any) {
@@ -499,7 +501,7 @@ export default function GalleryManager({
                     type="text"
                     value={videoSrc}
                     onChange={(e) => setVideoSrc(e.target.value)}
-                    placeholder="https://vjs.zencdn.net/v/oceans.mp4"
+                    placeholder="/uploads/arena-clip.mp4 or https://..."
                     className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
@@ -722,7 +724,7 @@ export default function GalleryManager({
                     type="text"
                     value={quickVideoSrc}
                     onChange={(e) => setQuickVideoSrc(e.target.value)}
-                    placeholder="https://vjs.zencdn.net/v/oceans.mp4"
+                    placeholder="/uploads/arena-clip.mp4 or https://..."
                     className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />

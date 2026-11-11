@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authDb } from "@/lib/auth/authDb";
+import { setSessionCookie } from "@/lib/auth/serverAuth";
+import {
+  callDjangoApi,
+  isDjangoBackendConfigured,
+  isLocalJsonFallbackDisabled,
+} from "@/lib/backend/djangoClient";
 
 export const dynamic = "force-dynamic";
 
@@ -70,31 +76,40 @@ export async function GET(req: NextRequest) {
     const avatar = profile.picture;
     const googleId = profile.sub;
 
-    // 3. Upsert into auth database
-    const result = authDb.findOrCreateGoogleUser({
-      email,
-      name,
-      avatar,
-      googleId,
-    });
+    let userResult: { user: any; redirectUrl: string };
+    if (isDjangoBackendConfigured()) {
+      const upstream = await callDjangoApi({
+        path: "/api/auth/google/",
+        method: "POST",
+        body: { email, name, avatar, googleId },
+      });
+      if (!upstream.ok || !upstream.data?.user) {
+        return NextResponse.redirect(
+          `${baseUrl}/?auth_error=${encodeURIComponent(upstream.data?.error || "Backend sign-in unavailable")}`
+        );
+      }
+      userResult = { user: upstream.data.user, redirectUrl: upstream.data.redirectUrl || "/profile" };
+    } else if (isLocalJsonFallbackDisabled()) {
+      return NextResponse.redirect(
+        `${baseUrl}/?auth_error=${encodeURIComponent("Backend persistence service is unavailable")}`
+      );
+    } else {
+      userResult = authDb.findOrCreateGoogleUser({
+        email,
+        name,
+        avatar,
+        googleId,
+      });
+    }
 
     // 4. Redirect with session cookie
-    const targetUrl = new URL(result.redirectUrl, baseUrl);
+    const targetUrl = new URL(userResult.redirectUrl, baseUrl);
     targetUrl.searchParams.set("auth_success", "true");
 
     const response = NextResponse.redirect(targetUrl.toString());
 
-    response.cookies.set("boss_session", JSON.stringify({
-      id: result.user.id,
-      name: result.user.name,
-      role: result.user.role,
-      avatar: result.user.avatar,
-      token: result.token,
-    }), {
-      path: "/",
-      httpOnly: false,
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    });
+    // Set HMAC-signed httpOnly session cookie
+    setSessionCookie(response, userResult.user, req);
 
     return response;
   } catch (err: any) {

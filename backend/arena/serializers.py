@@ -1,12 +1,12 @@
 from rest_framework import serializers
-from .models import User, Court, Booking, GalleryItem
+from .models import Booking, Court, GalleryItem, User
 
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'phone', 'role', 'first_name', 'last_name', 'profile_photo')
-        read_only_fields = ('id', 'role')
+        fields = ('id', 'external_id', 'username', 'email', 'phone', 'role', 'first_name', 'last_name', 'profile_photo')
+        read_only_fields = ('id', 'external_id', 'role')
 
 
 class CourtSerializer(serializers.ModelSerializer):
@@ -22,56 +22,34 @@ class BookingSerializer(serializers.ModelSerializer):
         model = Booking
         fields = [
             'id',
+            'external_id',
             'court',
             'court_name',
             'user',
             'customer_name',
             'customer_phone',
             'customer_email',
+            'start_at',
+            'end_at',
             'booking_date',
             'start_time',
             'end_time',
             'duration_hours',
+            'source',
             'total_price',
+            'discount_code',
+            'discount_amount',
+            'equipment_addons',
             'payment_status',
             'payment_method',
             'status',
             'notes',
+            'cancellation_reason',
+            'cancelled_at',
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ('id', 'created_at', 'updated_at')
-
-    def validate(self, attrs):
-        court = attrs.get('court')
-        booking_date = attrs.get('booking_date')
-        start_time = attrs.get('start_time')
-
-        # Check if booking date or time has already passed
-        from django.utils import timezone
-        today = timezone.localdate()
-        now_time = timezone.localtime().time()
-        if booking_date < today or (booking_date == today and start_time <= now_time):
-            raise serializers.ValidationError({
-                "slot": "Cannot book a time slot in the past. Please select an upcoming slot."
-            })
-
-        # Check for slot collisions
-        existing = Booking.objects.filter(
-            court=court,
-            booking_date=booking_date,
-            start_time=start_time,
-            status__in=['CONFIRMED', 'PENDING']
-        )
-        if self.instance:
-            existing = existing.exclude(id=self.instance.id)
-
-        if existing.exists():
-            raise serializers.ValidationError({
-                "slot": f"This slot ({start_time}) on {court.name} is already booked or reserved."
-            })
-
-        return attrs
+        read_only_fields = ('id', 'external_id', 'created_at', 'updated_at')
 
 
 class GalleryItemSerializer(serializers.ModelSerializer):
@@ -81,6 +59,7 @@ class GalleryItemSerializer(serializers.ModelSerializer):
         model = GalleryItem
         fields = [
             'id',
+            'external_id',
             'title',
             'item_type',
             'category',
@@ -91,11 +70,12 @@ class GalleryItemSerializer(serializers.ModelSerializer):
             'video_url',
             'aspect',
             'caption',
+            'duration',
             'order',
             'is_active',
             'created_at',
         ]
-        read_only_fields = ('id', 'created_at')
+        read_only_fields = ('id', 'external_id', 'created_at')
 
     def get_effective_media_url(self, obj):
         if obj.media_file:
@@ -104,4 +84,3 @@ class GalleryItemSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.media_file.url)
             return obj.media_file.url
         return obj.media_url or ''
-

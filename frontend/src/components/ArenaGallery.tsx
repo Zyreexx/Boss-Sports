@@ -34,49 +34,45 @@ const GALLERY_ITEMS: GalleryItem[] = [
   // Column 1
   {
     id: "gal-1",
-    type: "video",
-    title: "Championship Kitchen Dink Rally",
+    type: "image",
+    title: "Kitchen Dink Rally & Net Play",
     category: "matchplay",
-    tag: "",
+    tag: "Live Action",
     src: "/images/hero-player.jpg",
-    videoSrc: "https://vjs.zencdn.net/v/oceans.mp4",
     aspect: "tall",
     caption: "Fast-paced third shot drop and kitchen rally exchanges on Court 1.",
-    duration: "0:12",
   },
   {
     id: "gal-2",
     type: "image",
-    title: "Official Pro Selkirk Carbon Paddles",
+    title: "Official Pro Carbon Paddles",
     category: "gear",
     tag: "Pro Gear",
     src: "/images/gallery-grid-full.jpg",
     aspect: "square",
-    caption: "Complimentary USAPA tournament-grade carbon fiber paddles provided at reception.",
+    caption: "Carbon fiber paddles and court balls available for players at reception.",
   },
 
   // Column 2
   {
     id: "gal-3",
-    type: "video",
-    title: "Baseline Reset & Crosscourt Angle",
+    type: "image",
+    title: "Baseline Reset & Court Defense",
     category: "training",
-    tag: "Pro Clinic",
+    tag: "Training",
     src: "/images/athletes-team.jpg",
-    videoSrc: "https://vjs.zencdn.net/v/oceans.mp4",
     aspect: "tall",
-    caption: "Mastering the defensive baseline reset under intense topspin pressure.",
-    duration: "0:10",
+    caption: "Practicing the defensive baseline reset and crosscourt placement.",
   },
   {
     id: "gal-4",
     type: "image",
-    title: "Optic Yellow Tournament Ball in Flight",
+    title: "Optic Yellow Court Ball in Flight",
     category: "matchplay",
     tag: "Matchplay",
     src: "/images/ball-hand.jpg",
     aspect: "standard",
-    caption: "High-visibility tournament optic balls engineered for consistent court bounce.",
+    caption: "High-visibility optic balls designed for consistent court bounce.",
   },
 
   // Column 3
@@ -88,68 +84,83 @@ const GALLERY_ITEMS: GalleryItem[] = [
     tag: "Equipment",
     src: "/images/gallery-action-scroll.jpg",
     aspect: "tall",
-    caption: "Ergonomic moisture-wicking grip designed for maximum control and spin.",
+    caption: "Ergonomic moisture-wicking paddle grip for control and spin.",
   },
   {
     id: "gal-6",
-    type: "video",
-    title: "Overhead Smash & Jump Volley",
+    type: "image",
+    title: "Overhead Smash & Volley Action",
     category: "tournament",
-    tag: "",
+    tag: "Match Action",
     src: "/images/joola-court.jpg",
-    videoSrc: "https://vjs.zencdn.net/v/oceans.mp4",
     aspect: "standard",
-    caption: "Agile overhead court coverage and put-away smashes during tournament semi-finals.",
-    duration: "0:08",
+    caption: "Agile overhead court coverage and smashes during competitive play.",
   },
 
   // Column 4
   {
     id: "gal-7",
-    type: "video",
+    type: "image",
     title: "Singles Speed & Footwork Coverage",
     category: "matchplay",
-    tag: "",
+    tag: "Court Play",
     src: "/images/hero-action.jpg",
-    videoSrc: "https://vjs.zencdn.net/v/oceans.mp4",
     aspect: "tall",
-    caption: "High-intensity singles rally across the entire 44-foot championship court.",
-    duration: "0:15",
+    caption: "High-tempo singles rally across the full outdoor and indoor court surface.",
   },
   {
     id: "gal-8",
     type: "image",
-    title: "Court 2 Stadium Illumination",
+    title: "Court Arena Illumination",
     category: "tournament",
     tag: "Arena",
     src: "/images/court-wide.jpg",
     aspect: "standard",
-    caption: "500-lux anti-glare overhead LED stadium lighting for evening gameplay.",
+    caption: "Evening LED lighting setup across our dedicated Gondal pickleball courts.",
   },
 ];
 
-export default function ArenaGallery() {
+export default function ArenaGallery({ standardRate = 400 }: { standardRate?: number } = {}) {
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>(GALLERY_ITEMS);
   const [activeFilter, setActiveFilter] = useState<"all" | "video" | "image" | "gear">("all");
   const [activeModalItem, setActiveModalItem] = useState<GalleryItem | null>(null);
   const [isMuted, setIsMuted] = useState(true);
-  const [playingMap, setPlayingMap] = useState<Record<string, boolean>>({
-    "gal-1": true,
-    "gal-3": true,
-    "gal-6": true,
-    "gal-7": true,
-  });
+  const [playingMap, setPlayingMap] = useState<Record<string, boolean>>({});
+  const [modalVideoFailed, setModalVideoFailed] = useState(false);
+
+  const hasVideos = galleryItems.some((item) => item.type === "video" && item.videoSrc);
 
   useEffect(() => {
-    fetch("/api/gallery")
-      .then((res) => res.json())
+    fetch("/api/gallery", { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
       .then((data) => {
-        if (data.success && Array.isArray(data.items) && data.items.length > 0) {
+        if (data?.success && Array.isArray(data.items) && data.items.length > 0) {
           setGalleryItems(data.items);
         }
       })
       .catch((err) => console.error("Error fetching live gallery:", err));
   }, []);
+
+  useEffect(() => {
+    if (!activeModalItem) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setActiveModalItem(null);
+        setModalVideoFailed(false);
+      } else if (e.key === "ArrowRight") {
+        const idx = galleryItems.findIndex((i) => i.id === activeModalItem.id);
+        setActiveModalItem(galleryItems[(idx + 1) % galleryItems.length]);
+      } else if (e.key === "ArrowLeft") {
+        const idx = galleryItems.findIndex((i) => i.id === activeModalItem.id);
+        setActiveModalItem(galleryItems[(idx - 1 + galleryItems.length) % galleryItems.length]);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeModalItem, galleryItems]);
 
   const filteredItems = galleryItems.filter((item) => {
     if (activeFilter === "all") return true;
@@ -210,7 +221,7 @@ export default function ArenaGallery() {
               Experience Boss Pickleball In Motion
             </h2>
             <p className="text-xs sm:text-sm text-neutral-700 max-w-xl mt-2 leading-relaxed">
-              Explore dynamic court play, live player dinks, high-flying smashes, and tournament-grade pro gear in our official arena gallery.
+              Explore court highlights, player matchplay, and equipment available at Boss Pickleball Gondal.
             </p>
           </div>
 
@@ -227,17 +238,19 @@ export default function ArenaGallery() {
               >
                 All
               </button>
-              <button
-                type="button"
-                onClick={() => setActiveFilter("video")}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${activeFilter === "video"
-                  ? "bg-[#0d1a2c] text-white shadow-sm"
-                  : "text-neutral-700 hover:text-black"
-                  }`}
-              >
-                <Video className="w-3.5 h-3.5 text-[#c7f711]" />
-                <span>Live Videos</span>
-              </button>
+              {hasVideos && (
+                <button
+                  type="button"
+                  onClick={() => setActiveFilter("video")}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${activeFilter === "video"
+                    ? "bg-[#0d1a2c] text-white shadow-sm"
+                    : "text-neutral-700 hover:text-black"
+                    }`}
+                >
+                  <Video className="w-3.5 h-3.5 text-[#c7f711]" />
+                  <span>Videos</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setActiveFilter("image")}
@@ -247,7 +260,7 @@ export default function ArenaGallery() {
                   }`}
               >
                 <Camera className="w-3.5 h-3.5 text-blue-600" />
-                <span>Action Photos</span>
+                <span>Photos</span>
               </button>
               <button
                 type="button"
@@ -261,25 +274,26 @@ export default function ArenaGallery() {
               </button>
             </div>
 
-            {/* Global Audio Toggle */}
-            <button
-              type="button"
-              onClick={() => setIsMuted(!isMuted)}
-              className="p-2.5 rounded-full bg-white/90 border border-white/70 shadow-sm text-neutral-800 hover:bg-white transition-all flex items-center gap-1.5 text-xs font-bold"
-              title={isMuted ? "Unmute all videos" : "Mute all videos"}
-            >
-              {isMuted ? (
-                <>
-                  <VolumeX className="w-4 h-4 text-neutral-500" />
-                  <span className="hidden sm:inline">Muted</span>
-                </>
-              ) : (
-                <>
-                  <Volume2 className="w-4 h-4 text-[#00A852]" />
-                  <span className="hidden sm:inline">Sound On</span>
-                </>
-              )}
-            </button>
+            {hasVideos && (
+              <button
+                type="button"
+                onClick={() => setIsMuted(!isMuted)}
+                className="p-2.5 rounded-full bg-white/90 border border-white/70 shadow-sm text-neutral-800 hover:bg-white transition-all flex items-center gap-1.5 text-xs font-bold"
+                title={isMuted ? "Unmute all videos" : "Mute all videos"}
+              >
+                {isMuted ? (
+                  <>
+                    <VolumeX className="w-4 h-4 text-neutral-500" />
+                    <span className="hidden sm:inline">Muted</span>
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="w-4 h-4 text-[#00A852]" />
+                    <span className="hidden sm:inline">Sound On</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
@@ -345,29 +359,41 @@ export default function ArenaGallery() {
 
       {/* Expanded Fullscreen Lightbox Modal */}
       {activeModalItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/90 backdrop-blur-xl animate-in fade-in duration-200">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="gallery-lightbox-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/90 backdrop-blur-xl animate-in fade-in duration-200"
+        >
           <div className="relative max-w-4xl w-full bg-[#0d141f] border border-white/15 rounded-3xl overflow-hidden shadow-2xl text-white">
             {/* Top Bar */}
             <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10">
               <div className="flex items-center gap-3">
-                <h3 className="font-bold text-sm sm:text-base text-white">
+                <h3 id="gallery-lightbox-title" className="font-bold text-sm sm:text-base text-white">
                   {activeModalItem.title}
                 </h3>
               </div>
 
               <div className="flex items-center gap-2">
+                {activeModalItem.type === "video" && activeModalItem.videoSrc && !modalVideoFailed && (
+                  <button
+                    type="button"
+                    onClick={() => setIsMuted(!isMuted)}
+                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
+                    title="Toggle Mute"
+                    aria-label={isMuted ? "Unmute video" : "Mute video"}
+                  >
+                    {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-[#c7f711]" />}
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => setIsMuted(!isMuted)}
+                  onClick={() => {
+                    setActiveModalItem(null);
+                    setModalVideoFailed(false);
+                  }}
                   className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
-                  title="Toggle Mute"
-                >
-                  {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-[#c7f711]" />}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveModalItem(null)}
-                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
+                  aria-label="Close modal"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -376,7 +402,7 @@ export default function ArenaGallery() {
 
             {/* Media Content */}
             <div className="relative aspect-video w-full bg-black flex items-center justify-center overflow-hidden">
-              {activeModalItem.type === "video" && activeModalItem.videoSrc ? (
+              {activeModalItem.type === "video" && activeModalItem.videoSrc && !modalVideoFailed ? (
                 <video
                   src={activeModalItem.videoSrc}
                   autoPlay
@@ -384,6 +410,7 @@ export default function ArenaGallery() {
                   muted={isMuted}
                   controls
                   playsInline
+                  onError={() => setModalVideoFailed(true)}
                   className="w-full h-full object-contain"
                 />
               ) : (
@@ -401,6 +428,7 @@ export default function ArenaGallery() {
               <button
                 type="button"
                 onClick={handlePrevModal}
+                aria-label="Previous gallery item"
                 className="absolute left-4 p-3 rounded-full bg-black/60 hover:bg-black/90 text-white border border-white/20 transition-all"
               >
                 <ChevronLeft className="w-5 h-5" />
@@ -408,6 +436,7 @@ export default function ArenaGallery() {
               <button
                 type="button"
                 onClick={handleNextModal}
+                aria-label="Next gallery item"
                 className="absolute right-4 p-3 rounded-full bg-black/60 hover:bg-black/90 text-white border border-white/20 transition-all"
               >
                 <ChevronRight className="w-5 h-5" />
@@ -424,7 +453,7 @@ export default function ArenaGallery() {
                 onClick={() => setActiveModalItem(null)}
                 className="px-5 py-2.5 rounded-full bg-[#c7f711] hover:bg-[#b0dc0d] text-black font-extrabold text-xs tracking-tight transition-all text-center"
               >
-                Book Court Now • ₹400/hr
+                Book Court Now • ₹{standardRate}/hr
               </a>
             </div>
           </div>
@@ -449,6 +478,7 @@ function GalleryCard({
   onOpen: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoFailed, setVideoFailed] = useState(false);
 
   React.useEffect(() => {
     if (videoRef.current) {
@@ -480,11 +510,20 @@ function GalleryCard({
   return (
     <div
       id={`card-${item.id}`}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open gallery item: ${item.title}`}
       onClick={handleCardClick}
-      className={`group relative w-full ${heightClass} rounded-none overflow-hidden bg-neutral-900 border-2 border-white/80 shadow-md hover:shadow-2xl hover:border-[#00A852] transition-all duration-300 cursor-pointer`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleCardClick();
+        }
+      }}
+      className={`group relative w-full ${heightClass} rounded-none overflow-hidden bg-neutral-900 border-2 border-white/80 shadow-md hover:shadow-2xl hover:border-[#00A852] focus:outline-none focus:ring-2 focus:ring-[#c7f711] transition-all duration-300 cursor-pointer`}
     >
       {/* Video or Image Element */}
-      {item.type === "video" && item.videoSrc ? (
+      {item.type === "video" && item.videoSrc && !videoFailed ? (
         <div className="relative w-full h-full overflow-hidden bg-black rounded-none">
           <video
             ref={videoRef}
@@ -494,6 +533,7 @@ function GalleryCard({
             loop
             muted={isMuted}
             playsInline
+            onError={() => setVideoFailed(true)}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
           />
           {/* Permanent dark gradient overlay for text readability */}
@@ -518,6 +558,7 @@ function GalleryCard({
           <button
             type="button"
             onClick={onTogglePlay}
+            aria-label={isPlaying ? `Pause ${item.title}` : `Play ${item.title}`}
             className="p-2 rounded-full bg-black/60 hover:bg-black/90 text-white backdrop-blur-md transition-all"
             title={isPlaying ? "Pause video" : "Play video"}
           >
@@ -530,6 +571,7 @@ function GalleryCard({
             e.stopPropagation();
             onOpen();
           }}
+          aria-label={`Expand ${item.title}`}
           className="p-2 rounded-full bg-black/60 hover:bg-black/90 text-white backdrop-blur-md transition-all"
           title="Expand View"
         >

@@ -18,8 +18,9 @@ dist/
 **/.env.local
 **/.env.*.local
 
-# User credential data
+# User credential & legacy JSON database files
 **/users_auth.json
+**/pickleball_database.json
 
 # Misc
 .DS_Store

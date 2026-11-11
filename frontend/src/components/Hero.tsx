@@ -148,7 +148,7 @@ export default function Hero({ activeSport = "pickleball", onSportChange }: Hero
         {/* Right: Truthful court & venue attributes */}
         <div className="flex items-center gap-2 text-xs text-neutral-700 font-semibold">
           <span className="w-2 h-2 rounded-full bg-[#00A852]" />
-          <span>3 Tournament Courts</span>
+          <span>3 Pickleball Courts</span>
           <span className="text-neutral-300">•</span>
           <span>Gondal, Gujarat</span>
         </div>

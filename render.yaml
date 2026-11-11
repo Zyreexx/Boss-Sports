@@ -5,7 +5,9 @@ databases:
     plan: free
 
 services:
-  # 1. Django REST Web API + Celery Worker & Beat (Bundled for Free Tier)
+  # 1. Django REST Web API
+  # NOTE: Render background `worker` services require a paid Render plan.
+  # Set RUN_EMBEDDED_CELERY="false" when deploying dedicated boss-celery-worker and boss-celery-beat services below.
   - type: web
     name: boss-django-api
     runtime: python
@@ -13,13 +15,24 @@ services:
     plan: free
     buildCommand: ./build.sh
     startCommand: ./start.sh
+    healthCheckPath: /api/health/
     envVars:
       - key: DJANGO_DEBUG
         value: "False"
       - key: DJANGO_SECRET_KEY
         generateValue: true
+      - key: BACKEND_SERVICE_SECRET
+        sync: false
       - key: DJANGO_ALLOWED_HOSTS
         value: ".onrender.com,localhost,127.0.0.1"
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: SERVE_LOCAL_MEDIA
+        value: "False"
+      - key: DJANGO_SECURE_SSL_REDIRECT
+        value: "True"
+      - key: RUN_EMBEDDED_CELERY
+        value: "true"
       - key: DATABASE_URL
         fromDatabase:
           name: boss-postgres
@@ -30,8 +43,47 @@ services:
           name: boss-redis
           property: connectionString
 
-  # 2. Redis Cache & Celery Message Broker
+  # 2. Redis Cache & Celery Message Broker (NOT authoritative booking/revenue storage)
   - type: redis
     name: boss-redis
     plan: free
-    ipAllowList: [] # internal access only
+    ipAllowList: []
+
+  # 3. Recommended dedicated Celery Worker & Beat services when upgrading beyond Render Free plan:
+  # - type: worker
+  #   name: boss-celery-worker
+  #   runtime: python
+  #   rootDir: backend
+  #   plan: starter
+  #   buildCommand: pip install -r requirements.txt
+  #   startCommand: celery -A boss_backend worker -l info --concurrency=2
+  #   envVars:
+  #     - key: DJANGO_DEBUG
+  #       value: "False"
+  #     - key: DJANGO_SECRET_KEY
+  #       fromService:
+  #         type: web
+  #         name: boss-django-api
+  #         envVarKey: DJANGO_SECRET_KEY
+  #     - key: BACKEND_SERVICE_SECRET
+  #       sync: false
+  #     - key: DJANGO_ALLOWED_HOSTS
+  #       value: ".onrender.com,localhost,127.0.0.1"
+  #     - key: DATABASE_URL
+  #       fromDatabase:
+  #         name: boss-postgres
+  #         property: connectionString
+  #     - key: REDIS_URL
+  #       fromService:
+  #         type: redis
+  #         name: boss-redis
+  #         property: connectionString
+  #
+  # - type: worker
+  #   name: boss-celery-beat
+  #   runtime: python
+  #   rootDir: backend
+  #   plan: starter
+  #   buildCommand: pip install -r requirements.txt
+  #   startCommand: celery -A boss_backend beat -l info
+  #   envVars: ...
