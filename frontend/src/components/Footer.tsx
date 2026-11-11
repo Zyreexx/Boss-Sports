@@ -104,15 +104,15 @@ export default function Footer({ activeSport = "pickleball" }: FooterProps = {})
           <ul className="space-y-2.5 text-xs text-neutral-700">
             <li className="flex items-start gap-2">
               <MapPin className="w-3.5 h-3.5 text-[#00A852] shrink-0 mt-0.5" />
-              <span>Boss Pickleball, Gondal</span>
+              <span>Boss Pickleball, Gondal, Gujarat</span>
             </li>
             <li className="flex items-center gap-2">
               <Phone className="w-3.5 h-3.5 text-[#00A852] shrink-0" />
-              <span>+91 98765 43210</span>
+              <span className="text-neutral-500 italic">[Phone: Pending Owner Setup]</span>
             </li>
             <li className="flex items-center gap-2">
               <Clock className="w-3.5 h-3.5 text-[#00A852] shrink-0" />
-              <span>Daily: 5:30 AM – 10:30 PM</span>
+              <span>Daily: 6:00 AM – 11:00 PM</span>
             </li>
           </ul>
         </div>

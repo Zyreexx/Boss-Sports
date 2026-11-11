@@ -145,45 +145,12 @@ export default function Hero({ activeSport = "pickleball", onSportChange }: Hero
           </motion.div>
         </motion.a>
 
-        {/* Right: ★ 4.9 [Avatars] 3k+ Members */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 text-neutral-900 font-extrabold">
-            <Star className="w-3.5 h-3.5 fill-[#00E073] text-[#00E073]" />
-            <span>4.9</span>
-          </div>
-
-          {/* 3 Circular Avatar Stack */}
-          <div className="flex -space-x-1.5">
-            <div className="w-6 h-6 rounded-full border border-white overflow-hidden relative shadow-sm">
-              <Image
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80"
-                alt="Member"
-                width={24}
-                height={24}
-                className="object-cover w-full h-full"
-              />
-            </div>
-            <div className="w-6 h-6 rounded-full border border-white overflow-hidden relative shadow-sm">
-              <Image
-                src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80"
-                alt="Member"
-                width={24}
-                height={24}
-                className="object-cover w-full h-full"
-              />
-            </div>
-            <div className="w-6 h-6 rounded-full border border-white overflow-hidden relative shadow-sm">
-              <Image
-                src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80"
-                alt="Member"
-                width={24}
-                height={24}
-                className="object-cover w-full h-full"
-              />
-            </div>
-          </div>
-
-          <span className="text-[12px] text-neutral-600 font-semibold">3k+ Members</span>
+        {/* Right: Truthful court & venue attributes */}
+        <div className="flex items-center gap-2 text-xs text-neutral-700 font-semibold">
+          <span className="w-2 h-2 rounded-full bg-[#00A852]" />
+          <span>3 Tournament Courts</span>
+          <span className="text-neutral-300">•</span>
+          <span>Gondal, Gujarat</span>
         </div>
       </motion.div>
     </section>

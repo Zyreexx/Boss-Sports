@@ -340,7 +340,6 @@ export default function StaffPanelPage() {
         body: JSON.stringify({
           bookingId: cancelModalBooking.id,
           reason: cancelReason || "Cancelled by desk registrar",
-          staffId: "staff-registrar",
         }),
       });
       const data = await res.json();

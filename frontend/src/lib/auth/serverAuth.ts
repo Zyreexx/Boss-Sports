@@ -5,6 +5,7 @@ export interface AuthenticatedActor {
   id: string;
   name: string;
   email: string;
+  phone: string;
   role: "OWNER" | "EMPLOYEE" | "CUSTOMER";
 }
 
@@ -26,6 +27,7 @@ export function getAuthenticatedActor(req: NextRequest): AuthenticatedActor | nu
       id: user.id,
       name: user.name,
       email: user.email,
+      phone: user.phone || "",
       role: user.role,
     };
   } catch (e) {

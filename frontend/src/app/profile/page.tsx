@@ -107,7 +107,6 @@ export default function CustomerProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bookingId: booking.id,
-          phone: currentUser?.phone,
           reason: "Customer cancelled via profile portal",
         }),
       });

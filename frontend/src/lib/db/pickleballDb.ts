@@ -972,7 +972,7 @@ class PickleballDatabaseService {
     const finalPrice = Math.max(0, basePrice - discountAmount + addonsTotal);
 
     const booking: Booking = {
-      id: `BK-${Date.now().toString().slice(-6)}`,
+      id: `BK-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
       courtId,
       courtName: court.name,
       startTime,
@@ -1023,6 +1023,12 @@ class PickleballDatabaseService {
 
     this.save(state);
     return { success: true, booking };
+  }
+
+  // 6b. Get single booking by ID
+  public getBookingById(bookingId: string): Booking | null {
+    const state = this.load();
+    return state.bookings.find((b) => b.id === bookingId) || null;
   }
 
   // 7. Cancel Booking with 2-Hour Policy check

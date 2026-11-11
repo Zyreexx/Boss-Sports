@@ -41,6 +41,16 @@ export async function POST(req: NextRequest) {
     const sessionActor = getAuthenticatedActor(req);
     const isStaffOrOwner = sessionActor?.role === "OWNER" || sessionActor?.role === "EMPLOYEE";
 
+    // Enforce booking source: WALKIN or PHONE allowed ONLY from authenticated OWNER or EMPLOYEE sessions.
+    // For unauthenticated callers or customers, source is strictly forced to ONLINE.
+    const sanitizedSource: "ONLINE" | "PHONE" | "WALKIN" =
+      isStaffOrOwner && (source === "WALKIN" || source === "PHONE")
+        ? source
+        : "ONLINE";
+
+    // Derive staffId strictly from the authenticated session, never from client body
+    const sanitizedStaffId = isStaffOrOwner ? sessionActor?.id : undefined;
+
     let sanitizedPaymentStatus:
       | "PAID_ONLINE"
       | "CASH_COUNTER"
@@ -48,7 +58,7 @@ export async function POST(req: NextRequest) {
       | "PAY_AT_VENUE"
       | "PENDING" = "PAY_AT_VENUE";
 
-    if (isStaffOrOwner && (source === "WALKIN" || source === "PHONE")) {
+    if (isStaffOrOwner && (sanitizedSource === "WALKIN" || sanitizedSource === "PHONE")) {
       // Authenticated staff can set desk payments
       if (body.paymentStatus === "CASH_COUNTER" || body.paymentStatus === "UPI_COUNTER") {
         sanitizedPaymentStatus = body.paymentStatus;
@@ -67,13 +77,13 @@ export async function POST(req: NextRequest) {
       customerName,
       customerPhone,
       customerEmail,
-      source: isStaffOrOwner ? source : "ONLINE",
+      source: sanitizedSource,
       paymentStatus: sanitizedPaymentStatus,
       discountCode,
       equipmentAddons,
       notes,
       sessionId,
-      staffId: isStaffOrOwner ? sessionActor?.id : undefined,
+      staffId: sanitizedStaffId,
     });
 
     if (!result.success) {
