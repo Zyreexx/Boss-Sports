@@ -29,7 +29,7 @@ interface LoginModalProps {
 
 function GoogleIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24">
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
       <path
         fill="#4285F4"
         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -186,25 +186,25 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
       aria-labelledby="login-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md antialiased animate-in fade-in duration-200"
     >
-      <div className="bg-[#0d141f] border border-white/15 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-white">
+      <div className="bg-[#0d141f] border border-white/15 rounded-3xl p-5 sm:p-8 max-w-md w-full max-h-[92vh] overflow-y-auto shadow-2xl relative text-white">
         {/* Close Button */}
         <button
           type="button"
           onClick={onClose}
           aria-label="Close login modal"
-          className="absolute top-5 right-5 text-white/50 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors"
+          className="absolute top-4 right-4 text-white/60 hover:text-white min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full hover:bg-white/10 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Modal Header */}
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-2xl bg-[#c7f711]/20 border border-[#c7f711]/40 flex items-center justify-center text-[#c7f711]">
+        <div className="flex items-center gap-3 mb-5 pr-10">
+          <div className="w-10 h-10 shrink-0 rounded-2xl bg-[#c7f711]/20 border border-[#c7f711]/40 flex items-center justify-center text-[#c7f711]">
             <Key className="w-5 h-5" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h3 id="login-modal-title" className="text-lg font-bold text-white tracking-tight">Portal Access Login</h3>
-            <p className="text-xs text-white/50">Google Sign-in &amp; Role Verification</p>
+            <p className="text-xs text-white/60">Google Sign-in &amp; Role Verification</p>
           </div>
         </div>
 
@@ -232,7 +232,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
           type="button"
           onClick={handleGoogleOAuthRedirect}
           disabled={loading || googleLoading}
-          className="w-full bg-white hover:bg-neutral-100 text-neutral-900 font-bold text-xs py-3 px-4 rounded-2xl flex items-center justify-center gap-3 transition-all shadow-md hover:shadow-lg disabled:opacity-60 mb-4 border border-neutral-200 cursor-pointer active:scale-[0.99]"
+          className="w-full min-h-[44px] bg-white hover:bg-neutral-100 text-neutral-900 font-bold text-xs py-3 px-4 rounded-2xl flex items-center justify-center gap-3 transition-all shadow-md hover:shadow-lg disabled:opacity-60 mb-4 border border-neutral-200 cursor-pointer active:scale-[0.99]"
         >
           {googleLoading ? (
             <>
@@ -250,7 +250,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
         {/* Divider */}
         <div className="flex items-center gap-3 my-4">
           <div className="flex-1 h-px bg-white/10" />
-          <span className="text-[10px] uppercase tracking-wider text-white/40 font-medium">
+          <span className="text-[10px] uppercase tracking-wider text-white/55 font-medium">
             or sign in with password
           </span>
           <div className="flex-1 h-px bg-white/10" />
@@ -265,37 +265,39 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
           className="space-y-3.5"
         >
           <div>
-            <label htmlFor="login-identifier" className="text-xs font-semibold text-white/70 block mb-1">
+            <label htmlFor="login-identifier" className="text-xs font-semibold text-white/80 block mb-1">
               Email or Mobile Phone
             </label>
             <div className="relative">
-              <User className="w-4 h-4 text-white/40 absolute left-3.5 top-3" />
+              <User aria-hidden="true" className="w-4 h-4 text-white/45 absolute left-3.5 top-3.5" />
               <input
                 id="login-identifier"
                 type="text"
                 required
+                autoComplete="username"
                 placeholder="Enter your account email or phone"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                className="w-full bg-white/5 border border-white/15 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#c7f711]"
+                className="w-full min-h-[44px] bg-white/5 border border-white/15 rounded-xl pl-10 pr-3.5 py-2.5 text-base sm:text-xs text-white placeholder-white/40 focus:border-[#c7f711]"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="login-password" className="text-xs font-semibold text-white/70 block mb-1">
+            <label htmlFor="login-password" className="text-xs font-semibold text-white/80 block mb-1">
               Password
             </label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-white/40 absolute left-3.5 top-3" />
+              <Lock aria-hidden="true" className="w-4 h-4 text-white/45 absolute left-3.5 top-3.5" />
               <input
                 id="login-password"
                 type="password"
                 required
+                autoComplete="current-password"
                 placeholder="Enter password..."
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-white/5 border border-white/15 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#c7f711]"
+                className="w-full min-h-[44px] bg-white/5 border border-white/15 rounded-xl pl-10 pr-3.5 py-2.5 text-base sm:text-xs text-white placeholder-white/40 focus:border-[#c7f711]"
               />
             </div>
           </div>
@@ -303,7 +305,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#c7f711] hover:bg-[#b0dc0d] text-black font-extrabold text-xs py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-[#c7f711]/20 disabled:opacity-50 mt-1 cursor-pointer"
+            className="w-full min-h-[48px] bg-[#c7f711] hover:bg-[#b0dc0d] text-black font-extrabold text-xs sm:text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-[#c7f711]/20 disabled:opacity-50 mt-1 cursor-pointer"
           >
             {loading ? (
               <>
@@ -319,7 +321,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
           </button>
         </form>
 
-        <div className="mt-4 text-center text-[10px] text-white/40 border-t border-white/10 pt-3">
+        <div className="mt-4 text-center text-[10px] text-white/55 border-t border-white/10 pt-3 leading-relaxed">
           Automatic Role Routing: Owners navigate to Executive Suite, Employees to Staff Desk, Customers to Portal.
         </div>
       </div>

@@ -432,8 +432,8 @@ export default function OwnerAdminPage() {
       {/* Top Bar */}
       <header className="border-b border-white/10 bg-[#0d141f]/90 backdrop-blur sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 min-h-16 py-2.5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full overflow-hidden border border-[#c7f711] shadow-[0_0_15px_rgba(199,247,17,0.3)] bg-white">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 shrink-0 rounded-full overflow-hidden border border-[#c7f711] shadow-[0_0_15px_rgba(199,247,17,0.3)] bg-white">
               <Image
                 src="/images/official-boss-logo.jpg"
                 alt="Boss Pickleball"
@@ -442,37 +442,37 @@ export default function OwnerAdminPage() {
                 className="object-cover w-full h-full"
               />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold tracking-tight text-white text-base">BOSS PICKLEBALL</span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <span className="font-extrabold tracking-tight text-white text-sm sm:text-base">BOSS PICKLEBALL</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider bg-[#c7f711]/20 text-[#c7f711] border border-[#c7f711]/40 px-2 py-0.5 rounded-full">
                   Owner Executive Suite
                 </span>
               </div>
-              <p className="text-xs text-white/50">Pickleball Court Bookings, Cash/UPI Audit &amp; Arena Schedule</p>
+              <p className="text-xs text-white/50 truncate">Pickleball Court Bookings, Cash/UPI Audit &amp; Arena Schedule</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-start sm:justify-end">
             {currentUser && currentUser.role === "OWNER" ? (
-              <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1 rounded-full">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500 text-white">
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1 rounded-full max-w-full min-h-[38px]">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500 text-white shrink-0">
                   👑 Owner
                 </span>
-                <span className="text-xs text-white/90">{currentUser.name}</span>
+                <span className="text-xs text-white/90 truncate max-w-[120px] sm:max-w-[180px]">{currentUser.name}</span>
                 <button
                   onClick={handleLogout}
-                  className="text-[10px] text-white/40 hover:text-white underline ml-1"
+                  className="text-xs text-white/60 hover:text-white underline ml-1 min-h-[32px] px-1 shrink-0"
                 >
                   Sign Out
                 </button>
               </div>
             ) : currentUser ? (
-              <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1 rounded-full">
-                <span className="text-xs text-white/90">{currentUser.name} ({currentUser.role})</span>
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1 rounded-full max-w-full min-h-[38px]">
+                <span className="text-xs text-white/90 truncate max-w-[150px] sm:max-w-none">{currentUser.name} ({currentUser.role})</span>
                 <button
                   onClick={handleLogout}
-                  className="text-[10px] text-white/40 hover:text-white underline ml-1"
+                  className="text-xs text-white/60 hover:text-white underline ml-1 min-h-[32px] px-1 shrink-0"
                 >
                   Sign Out
                 </button>
@@ -480,9 +480,9 @@ export default function OwnerAdminPage() {
             ) : (
               <button
                 onClick={() => setShowLoginModal(true)}
-                className="text-xs bg-purple-500 hover:bg-purple-600 text-white font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5"
+                className="text-xs bg-purple-500 hover:bg-purple-600 text-white font-bold px-3.5 py-2 rounded-lg flex items-center gap-1.5 min-h-[40px]"
               >
-                <Lock className="w-3.5 h-3.5" />
+                <Lock className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Owner Login</span>
               </button>
             )}
@@ -490,15 +490,15 @@ export default function OwnerAdminPage() {
             {(currentUser?.role === "OWNER" || currentUser?.role === "EMPLOYEE") && (
               <Link
                 href="/staff"
-                className="text-xs bg-white/10 hover:bg-white/20 text-white font-medium px-3.5 py-1.5 rounded-lg border border-white/20 transition-all flex items-center gap-1.5"
+                className="text-xs bg-white/10 hover:bg-white/20 text-white font-medium px-3.5 py-2 rounded-lg border border-white/20 transition-all inline-flex items-center gap-1.5 min-h-[40px]"
               >
-                <ArrowLeft className="w-3.5 h-3.5" />
+                <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Staff Desk</span>
               </Link>
             )}
             <Link
               href="/"
-              className="text-xs text-white/70 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/30 transition-all"
+              className="text-xs text-white/80 hover:text-white px-3.5 py-2 rounded-lg border border-white/15 hover:border-white/30 transition-all inline-flex items-center min-h-[40px]"
             >
               Customer Website ↗
             </Link>
@@ -509,14 +509,14 @@ export default function OwnerAdminPage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         {!authChecked ? (
-          <div className="p-16 text-center text-white/50 text-xs">
+          <div className="p-12 sm:p-16 text-center text-white/50 text-xs">
             <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3 text-[#c7f711]" />
             Verifying Owner access...
           </div>
         ) : !isOwnerAuthorized ? (
-          <div className="max-w-lg mx-auto my-12 p-8 rounded-3xl bg-[#0d141f] border border-white/10 text-center space-y-4">
+          <div className="max-w-lg mx-auto my-8 sm:my-12 p-6 sm:p-8 rounded-3xl bg-[#0d141f] border border-white/10 text-center space-y-4">
             <div className="w-14 h-14 rounded-2xl bg-purple-500/15 border border-purple-500/30 text-purple-300 flex items-center justify-center mx-auto">
-              <Shield className="w-6 h-6" />
+              <Shield className="w-6 h-6" aria-hidden="true" />
             </div>
             <h2 className="text-xl font-bold text-white">Owner Authorization Required</h2>
             <p className="text-xs text-white/60 leading-relaxed">
@@ -524,12 +524,12 @@ export default function OwnerAdminPage() {
                 ? `Signed in as ${currentUser.name} (${currentUser.role}). Financial reports, pricing rules, and court management require an OWNER account.`
                 : "Please sign in with an authorized OWNER account to view executive financial reports and manage the arena."}
             </p>
-            <div className="flex items-center justify-center gap-3 pt-2">
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               {!currentUser && (
                 <button
                   type="button"
                   onClick={() => setShowLoginModal(true)}
-                  className="px-5 py-2.5 rounded-xl bg-purple-500 hover:bg-purple-600 text-white font-extrabold text-xs transition-all"
+                  className="px-5 py-2.5 min-h-[44px] rounded-xl bg-purple-500 hover:bg-purple-600 text-white font-extrabold text-xs transition-all"
                 >
                   Owner Sign In
                 </button>
@@ -537,14 +537,14 @@ export default function OwnerAdminPage() {
               {currentUser?.role === "EMPLOYEE" && (
                 <Link
                   href="/staff"
-                  className="px-5 py-2.5 rounded-xl bg-[#c7f711] text-black font-extrabold text-xs transition-all"
+                  className="px-5 py-2.5 min-h-[44px] inline-flex items-center justify-center rounded-xl bg-[#c7f711] text-black font-extrabold text-xs transition-all"
                 >
                   Go to Staff Desk
                 </Link>
               )}
               <Link
                 href="/"
-                className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all"
+                className="px-5 py-2.5 min-h-[44px] inline-flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all"
               >
                 Return to Booking Site
               </Link>
@@ -558,15 +558,15 @@ export default function OwnerAdminPage() {
             ? "bg-gradient-to-r from-amber-950/80 to-amber-900/60 border-amber-500/50 text-amber-100"
             : "bg-gradient-to-r from-[#0d141f] to-[#121c2c] border-white/10 text-white"
         }`}>
-          <div className="flex items-center gap-3.5">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl border ${
+          <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+            <div className={`w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center text-2xl border ${
               todaySchedule?.isClosed
                 ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
                 : "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
             }`}>
               {todaySchedule?.isClosed ? "🏮" : "🟢"}
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-extrabold text-sm sm:text-base tracking-tight text-white">
                   Today&apos;s Store Status: {todaySchedule?.isClosed ? "CLOSED TODAY" : "OPEN FOR BOOKINGS"}
@@ -589,12 +589,12 @@ export default function OwnerAdminPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:self-center">
+          <div className="flex items-center gap-2 w-full sm:w-auto sm:self-center shrink-0">
             {todaySchedule?.isClosed ? (
               <button
                 type="button"
                 onClick={handleQuickReopenToday}
-                className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs tracking-tight shadow-lg transition-all flex items-center gap-2"
+                className="w-full sm:w-auto justify-center min-h-[44px] px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs tracking-tight shadow-lg transition-all flex items-center gap-2"
               >
                 <span>🟢 Reopen Arena for Today</span>
               </button>
@@ -602,7 +602,7 @@ export default function OwnerAdminPage() {
               <button
                 type="button"
                 onClick={handleQuickCloseToday}
-                className="px-5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 font-extrabold text-xs tracking-tight transition-all flex items-center gap-2"
+                className="w-full sm:w-auto justify-center min-h-[44px] px-5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 font-extrabold text-xs tracking-tight transition-all flex items-center gap-2"
               >
                 <span>🏮 Close Arena for Today</span>
               </button>
@@ -611,90 +611,103 @@ export default function OwnerAdminPage() {
         </div>
 
         {/* Nav Tabs */}
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4 mb-6">
-          <div className="flex flex-wrap items-center gap-2 bg-[#0d141f] p-1.5 rounded-2xl border border-white/10">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 border-b border-white/10 pb-4 mb-6">
+          <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-stretch sm:items-center gap-1.5 sm:gap-2 bg-[#0d141f] p-1.5 rounded-2xl border border-white/10 w-full lg:w-auto">
             <button
+              type="button"
+              aria-pressed={activeTab === "reports"}
               onClick={() => setActiveTab("reports")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs tracking-wide transition-all ${
+              className={`flex items-center gap-2 px-4 py-2.5 min-h-[42px] w-full sm:w-auto justify-start sm:justify-center rounded-xl font-semibold text-xs tracking-wide transition-all ${
                 activeTab === "reports"
                   ? "bg-[#c7f711] text-black shadow-lg shadow-[#c7f711]/20"
                   : "text-white/70 hover:text-white hover:bg-white/5"
               }`}
             >
-              <TrendingUp className="w-4 h-4" />
+              <TrendingUp className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>Financial &amp; Cash/UPI Audit</span>
             </button>
 
             <button
+              type="button"
+              aria-pressed={activeTab === "courts"}
               onClick={() => setActiveTab("courts")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs tracking-wide transition-all ${
+              className={`flex items-center gap-2 px-4 py-2.5 min-h-[42px] w-full sm:w-auto justify-start sm:justify-center rounded-xl font-semibold text-xs tracking-wide transition-all ${
                 activeTab === "courts"
                   ? "bg-[#c7f711] text-black shadow-lg shadow-[#c7f711]/20"
                   : "text-white/70 hover:text-white hover:bg-white/5"
               }`}
             >
-              <Layers className="w-4 h-4" />
+              <Layers className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>Courts &amp; Capacity</span>
             </button>
 
             <button
+              type="button"
+              aria-pressed={activeTab === "gallery"}
               onClick={() => setActiveTab("gallery")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs tracking-wide transition-all ${
+              className={`flex items-center gap-2 px-4 py-2.5 min-h-[42px] w-full sm:w-auto justify-start sm:justify-center rounded-xl font-semibold text-xs tracking-wide transition-all ${
                 activeTab === "gallery"
                   ? "bg-[#c7f711] text-black shadow-lg shadow-[#c7f711]/20"
                   : "text-white/70 hover:text-white hover:bg-white/5"
               }`}
             >
-              <FileText className="w-4 h-4" />
+              <FileText className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>Action Gallery</span>
             </button>
 
             <button
+              type="button"
+              aria-pressed={activeTab === "pricing"}
               onClick={() => setActiveTab("pricing")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs tracking-wide transition-all ${
+              className={`flex items-center gap-2 px-4 py-2.5 min-h-[42px] w-full sm:w-auto justify-start sm:justify-center rounded-xl font-semibold text-xs tracking-wide transition-all ${
                 activeTab === "pricing"
                   ? "bg-[#c7f711] text-black shadow-lg shadow-[#c7f711]/20"
                   : "text-white/70 hover:text-white hover:bg-white/5"
               }`}
             >
-              <Settings className="w-4 h-4" />
+              <Settings className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>Pickleball Pricing &amp; Peak Surge</span>
             </button>
 
             <button
+              type="button"
+              aria-pressed={activeTab === "schedule"}
               onClick={() => setActiveTab("schedule")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs tracking-wide transition-all ${
+              className={`flex items-center gap-2 px-4 py-2.5 min-h-[42px] w-full sm:w-auto justify-start sm:justify-center rounded-xl font-semibold text-xs tracking-wide transition-all ${
                 activeTab === "schedule"
                   ? "bg-[#c7f711] text-black shadow-lg shadow-[#c7f711]/20"
                   : "text-white/70 hover:text-white hover:bg-white/5"
               }`}
             >
-              <Calendar className="w-4 h-4" />
+              <Calendar className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>Arena Hours &amp; Holiday Closures</span>
             </button>
 
             <button
+              type="button"
+              aria-pressed={activeTab === "blocks"}
               onClick={() => setActiveTab("blocks")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs tracking-wide transition-all ${
+              className={`flex items-center gap-2 px-4 py-2.5 min-h-[42px] w-full sm:w-auto justify-start sm:justify-center rounded-xl font-semibold text-xs tracking-wide transition-all ${
                 activeTab === "blocks"
                   ? "bg-[#c7f711] text-black shadow-lg shadow-[#c7f711]/20"
                   : "text-white/70 hover:text-white hover:bg-white/5"
               }`}
             >
-              <Lock className="w-4 h-4" />
+              <Lock className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>Court Maintenance Blocks</span>
             </button>
           </div>
 
           <button
+            type="button"
             onClick={() => {
               fetchReports();
               fetchPricingConfig();
               fetchSchedules();
             }}
-            className="flex items-center gap-1.5 text-xs text-white/70 hover:text-white px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10"
+            className="flex items-center justify-center gap-1.5 text-xs text-white/75 hover:text-white px-3.5 py-2 min-h-[40px] self-start lg:self-auto rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 shrink-0"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${reportLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${reportLoading ? "animate-spin" : ""}`} aria-hidden="true" />
             <span>Refresh State</span>
           </button>
         </div>
@@ -724,7 +737,7 @@ export default function OwnerAdminPage() {
             <button
               type="button"
               onClick={fetchReports}
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold"
+              className="px-4 py-2.5 min-h-[40px] w-full sm:w-auto rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold shrink-0"
             >
               Retry Audit Load
             </button>
@@ -737,7 +750,7 @@ export default function OwnerAdminPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-5 rounded-3xl bg-[#0d141f] border border-white/10 relative overflow-hidden">
                 <div className="text-xs text-white/50 uppercase tracking-wider font-semibold">Realized Collected Revenue</div>
-                <div className="text-3xl font-extrabold text-white mt-2">
+                <div className="text-2xl sm:text-3xl font-extrabold text-white mt-2">
                   ₹{(reportData.summary.realizedRevenue ?? reportData.summary.grandTotalRevenue ?? 0).toLocaleString("en-IN")}
                 </div>
                 <div className="text-[11px] text-[#c7f711] mt-2 flex items-center gap-1">
@@ -747,7 +760,7 @@ export default function OwnerAdminPage() {
 
               <div className="p-5 rounded-3xl bg-[#0d141f] border border-amber-500/20 relative overflow-hidden">
                 <div className="text-xs text-amber-400 uppercase tracking-wider font-semibold">Pending Venue Payments</div>
-                <div className="text-3xl font-extrabold text-amber-400 mt-2">
+                <div className="text-2xl sm:text-3xl font-extrabold text-amber-400 mt-2">
                   ₹{(reportData.summary.pendingVenuePayment ?? 0).toLocaleString("en-IN")}
                 </div>
                 <div className="text-[11px] text-white/50 mt-2">
@@ -757,7 +770,7 @@ export default function OwnerAdminPage() {
 
               <div className="p-5 rounded-3xl bg-[#0d141f] border border-emerald-500/20 relative overflow-hidden">
                 <div className="text-xs text-emerald-400 uppercase tracking-wider font-semibold">Cash Counter Intake</div>
-                <div className="text-3xl font-extrabold text-emerald-400 mt-2">
+                <div className="text-2xl sm:text-3xl font-extrabold text-emerald-400 mt-2">
                   ₹{(reportData.summary.totalCashReconciliation ?? 0).toLocaleString("en-IN")}
                 </div>
                 <div className="text-[11px] text-white/50 mt-2">Physical Cash in Counter Drawer</div>
@@ -765,7 +778,7 @@ export default function OwnerAdminPage() {
 
               <div className="p-5 rounded-3xl bg-[#0d141f] border border-cyan-500/20 relative overflow-hidden">
                 <div className="text-xs text-cyan-400 uppercase tracking-wider font-semibold">UPI &amp; Online Intake</div>
-                <div className="text-3xl font-extrabold text-cyan-400 mt-2">
+                <div className="text-2xl sm:text-3xl font-extrabold text-cyan-400 mt-2">
                   ₹{((reportData.summary.totalUpiReconciliation ?? 0) + (reportData.summary.totalOnlineReconciliation ?? 0)).toLocaleString("en-IN")}
                 </div>
                 <div className="text-[11px] text-white/50 mt-2">
@@ -775,27 +788,29 @@ export default function OwnerAdminPage() {
             </div>
 
             {/* Default Live Upcoming Court Schedule Board for Owner */}
-            <div className="bg-[#0d141f] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-4">
+            <div className="bg-[#0d141f] border border-white/10 rounded-3xl p-5 sm:p-8 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
                 <div>
                   <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-[#c7f711]" />
+                    <Calendar className="w-5 h-5 text-[#c7f711] shrink-0" aria-hidden="true" />
                     <span>Live Upcoming Court Schedule &amp; Reservations</span>
                   </h2>
                   <p className="text-xs text-white/60 mt-0.5">
                     Real-time queue of confirmed matches across Court 1, Court 2, and Court 3 (All times in IST Asia/Kolkata).
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs bg-[#c7f711]/20 text-[#c7f711] border border-[#c7f711]/30 px-3 py-1 rounded-full font-bold">
                     {upcomingBookings.length} Active Games Scheduled
                   </span>
                   <button
+                    type="button"
                     onClick={fetchAdminBookings}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white"
+                    className="p-2 min-w-[40px] min-h-[40px] inline-flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white"
                     title="Refresh Schedule"
+                    aria-label="Refresh Schedule"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${bookingsLoading ? "animate-spin" : ""}`} />
+                    <RefreshCw className={`w-3.5 h-3.5 ${bookingsLoading ? "animate-spin" : ""}`} aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -806,96 +821,147 @@ export default function OwnerAdminPage() {
                   Syncing live court schedule...
                 </div>
               ) : upcomingBookings.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-white/10 text-white/50 uppercase tracking-wider text-[10px]">
-                        <th className="py-3 px-3">Date &amp; Time (IST)</th>
-                        <th className="py-3 px-3">Court</th>
-                        <th className="py-3 px-3">Customer</th>
-                        <th className="py-3 px-3">Contact</th>
-                        <th className="py-3 px-3">Booking ID</th>
-                        <th className="py-3 px-3">Payment</th>
-                        <th className="py-3 px-3">Amount</th>
-                        <th className="py-3 px-3">Source</th>
-                        <th className="py-3 px-3">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {upcomingBookings.map((b) => {
-                        const start = new Date(b.startTime);
-                        const end = new Date(b.endTime);
-                        const dateStr = start.toLocaleDateString("en-IN", {
-                          timeZone: "Asia/Kolkata",
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                        });
-                        const timeStr = `${start.toLocaleTimeString("en-IN", {
-                          timeZone: "Asia/Kolkata",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                        })} - ${end.toLocaleTimeString("en-IN", {
-                          timeZone: "Asia/Kolkata",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                        })}`;
+                (() => {
+                  const formattedUpcoming = upcomingBookings.map((b) => {
+                    const start = new Date(b.startTime);
+                    const end = new Date(b.endTime);
+                    const dateStr = start.toLocaleDateString("en-IN", {
+                      timeZone: "Asia/Kolkata",
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    });
+                    const timeStr = `${start.toLocaleTimeString("en-IN", {
+                      timeZone: "Asia/Kolkata",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: true,
+                    })} - ${end.toLocaleTimeString("en-IN", {
+                      timeZone: "Asia/Kolkata",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: true,
+                    })}`;
+                    const paymentBadgeClass =
+                      b.paymentStatus === "PAID_ONLINE" || b.paymentStatus === "CASH_COUNTER"
+                        ? "bg-emerald-500/20 text-emerald-400"
+                        : b.paymentStatus === "UPI_COUNTER"
+                        ? "bg-cyan-500/20 text-cyan-400"
+                        : "bg-amber-500/20 text-amber-400";
+                    return { b, dateStr, timeStr, paymentBadgeClass };
+                  });
 
-                        return (
-                          <tr key={b.id} className="hover:bg-white/5 transition-colors text-white/90">
-                            <td className="py-3 px-3 font-medium whitespace-nowrap">
-                              <div className="text-white font-semibold">{dateStr}</div>
-                              <div className="text-[11px] text-white/50 font-mono flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-[#c7f711]" />
-                                <span>{timeStr}</span>
+                  return (
+                    <>
+                      {/* Mobile Cards */}
+                      <div className="md:hidden space-y-3">
+                        {formattedUpcoming.map(({ b, dateStr, timeStr, paymentBadgeClass }) => (
+                          <div
+                            key={b.id}
+                            className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2.5 text-xs"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="font-semibold text-white">{dateStr}</div>
+                                <div className="text-[11px] text-white/60 font-mono flex items-center gap-1 mt-0.5">
+                                  <Clock className="w-3 h-3 text-[#c7f711] shrink-0" aria-hidden="true" />
+                                  <span>{timeStr}</span>
+                                </div>
                               </div>
-                            </td>
-                            <td className="py-3 px-3 whitespace-nowrap">
-                              <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-white/10 text-white border border-white/10">
+                              <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-white/10 text-white border border-white/10 shrink-0">
                                 {b.courtName || "Court 1"}
                               </span>
-                            </td>
-                            <td className="py-3 px-3 font-semibold text-white whitespace-nowrap">
-                              {b.customerName}
-                            </td>
-                            <td className="py-3 px-3 text-white/60 font-mono whitespace-nowrap text-[11px]">
-                              {b.customerPhone}
-                            </td>
-                            <td className="py-3 px-3 font-mono text-[11px] text-white/50 whitespace-nowrap">
-                              #{b.id.slice(-6).toUpperCase()}
-                            </td>
-                            <td className="py-3 px-3 whitespace-nowrap">
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                                  b.paymentStatus === "PAID_ONLINE" || b.paymentStatus === "CASH_COUNTER"
-                                    ? "bg-emerald-500/20 text-emerald-400"
-                                    : b.paymentStatus === "UPI_COUNTER"
-                                    ? "bg-cyan-500/20 text-cyan-400"
-                                    : "bg-amber-500/20 text-amber-400"
-                                }`}
-                              >
+                            </div>
+
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-2">
+                              <div className="min-w-0">
+                                <div className="font-semibold text-white truncate">{b.customerName}</div>
+                                <div className="text-[11px] text-white/60 font-mono">{b.customerPhone}</div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <div className="font-bold text-sm text-[#c7f711]">₹{b.totalPrice || 400}</div>
+                                <div className="font-mono text-[10px] text-white/50">
+                                  #{b.id.slice(-6).toUpperCase()} • {b.source}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${paymentBadgeClass}`}>
                                 {b.paymentStatus?.replace(/_/g, " ")}
                               </span>
-                            </td>
-                            <td className="py-3 px-3 font-bold text-[#c7f711] whitespace-nowrap">
-                              ₹{b.totalPrice || 400}
-                            </td>
-                            <td className="py-3 px-3 text-[11px] text-white/50 uppercase whitespace-nowrap font-medium">
-                              {b.source}
-                            </td>
-                            <td className="py-3 px-3 whitespace-nowrap">
                               <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                                 {b.status}
                               </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Tablet / Desktop Table */}
+                      <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="border-b border-white/10 text-white/50 uppercase tracking-wider text-[10px]">
+                              <th className="py-3 px-3">Date &amp; Time (IST)</th>
+                              <th className="py-3 px-3">Court</th>
+                              <th className="py-3 px-3">Customer</th>
+                              <th className="py-3 px-3">Contact</th>
+                              <th className="py-3 px-3">Booking ID</th>
+                              <th className="py-3 px-3">Payment</th>
+                              <th className="py-3 px-3">Amount</th>
+                              <th className="py-3 px-3">Source</th>
+                              <th className="py-3 px-3">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {formattedUpcoming.map(({ b, dateStr, timeStr, paymentBadgeClass }) => (
+                              <tr key={b.id} className="hover:bg-white/5 transition-colors text-white/90">
+                                <td className="py-3 px-3 font-medium whitespace-nowrap">
+                                  <div className="text-white font-semibold">{dateStr}</div>
+                                  <div className="text-[11px] text-white/50 font-mono flex items-center gap-1">
+                                    <Clock className="w-3 h-3 text-[#c7f711]" aria-hidden="true" />
+                                    <span>{timeStr}</span>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3 whitespace-nowrap">
+                                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-white/10 text-white border border-white/10">
+                                    {b.courtName || "Court 1"}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-3 font-semibold text-white whitespace-nowrap">
+                                  {b.customerName}
+                                </td>
+                                <td className="py-3 px-3 text-white/60 font-mono whitespace-nowrap text-[11px]">
+                                  {b.customerPhone}
+                                </td>
+                                <td className="py-3 px-3 font-mono text-[11px] text-white/50 whitespace-nowrap">
+                                  #{b.id.slice(-6).toUpperCase()}
+                                </td>
+                                <td className="py-3 px-3 whitespace-nowrap">
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${paymentBadgeClass}`}>
+                                    {b.paymentStatus?.replace(/_/g, " ")}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-3 font-bold text-[#c7f711] whitespace-nowrap">
+                                  ₹{b.totalPrice || 400}
+                                </td>
+                                <td className="py-3 px-3 text-[11px] text-white/50 uppercase whitespace-nowrap font-medium">
+                                  {b.source}
+                                </td>
+                                <td className="py-3 px-3 whitespace-nowrap">
+                                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                    {b.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  );
+                })()
               ) : (
                 <div className="p-8 text-center text-xs text-white/40 border border-dashed border-white/10 rounded-2xl">
                   No upcoming reservations currently in queue. Courts 1, 2, and 3 are ready for action.
@@ -904,53 +970,53 @@ export default function OwnerAdminPage() {
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Database 1: Pickleball */}
-              <div className="p-6 sm:p-8 rounded-3xl bg-[#0d141f] border border-white/10">
-                <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-6">
-                  <div className="flex items-center gap-2.5">
-                    <Database className="w-5 h-5 text-[#c7f711]" />
+              <div className="p-5 sm:p-8 rounded-3xl bg-[#0d141f] border border-white/10">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-white/10 mb-6">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Database className="w-5 h-5 text-[#c7f711] shrink-0" aria-hidden="true" />
                     <div>
                       <h3 className="font-bold text-white text-base">Pickleball Database</h3>
                       <p className="text-[11px] text-white/50">Persistent Booking &amp; Audit Ledger</p>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-[#c7f711]/20 text-[#c7f711] border border-[#c7f711]/30">
+                  <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-[#c7f711]/20 text-[#c7f711] border border-[#c7f711]/30 shrink-0">
                     Active Store
                   </span>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center py-2 border-b border-white/5 text-xs">
+                  <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5 text-xs">
                     <span className="text-white/60">Total Confirmed Bookings:</span>
-                    <span className="font-bold text-white font-mono">{reportData.pickleballDatabase.totalBookings}</span>
+                    <span className="font-bold text-white font-mono shrink-0">{reportData.pickleballDatabase.totalBookings}</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b border-white/5 text-xs">
+                  <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5 text-xs">
                     <span className="text-white/60">Realized Collected Revenue:</span>
-                    <span className="font-bold text-[#c7f711] font-mono text-sm">₹{reportData.pickleballDatabase.realizedRevenue ?? reportData.pickleballDatabase.totalRevenue}</span>
+                    <span className="font-bold text-[#c7f711] font-mono text-sm shrink-0">₹{reportData.pickleballDatabase.realizedRevenue ?? reportData.pickleballDatabase.totalRevenue}</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b border-white/5 text-xs">
+                  <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5 text-xs">
                     <span className="text-white/60">Pending Collection at Venue:</span>
-                    <span className="font-bold text-amber-400 font-mono">₹{reportData.pickleballDatabase.pendingVenuePayment ?? 0}</span>
+                    <span className="font-bold text-amber-400 font-mono shrink-0">₹{reportData.pickleballDatabase.pendingVenuePayment ?? 0}</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b border-white/5 text-xs">
+                  <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5 text-xs">
                     <span className="text-white/60">Gross Booked Value (All Active):</span>
-                    <span className="font-bold text-white font-mono">₹{reportData.pickleballDatabase.grossBookedValue ?? 0}</span>
+                    <span className="font-bold text-white font-mono shrink-0">₹{reportData.pickleballDatabase.grossBookedValue ?? 0}</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b border-white/5 text-xs">
+                  <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5 text-xs">
                     <span className="text-white/60">Cash Collected at Counter:</span>
-                    <span className="font-bold text-white font-mono">₹{reportData.pickleballDatabase.cashRevenue}</span>
+                    <span className="font-bold text-white font-mono shrink-0">₹{reportData.pickleballDatabase.cashRevenue}</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b border-white/5 text-xs">
+                  <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5 text-xs">
                     <span className="text-white/60">UPI QR Counter Revenue:</span>
-                    <span className="font-bold text-white font-mono">₹{reportData.pickleballDatabase.upiCounterRevenue}</span>
+                    <span className="font-bold text-white font-mono shrink-0">₹{reportData.pickleballDatabase.upiCounterRevenue}</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b border-white/5 text-xs">
+                  <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5 text-xs">
                     <span className="text-white/60">Online Verified Payments:</span>
-                    <span className="font-bold text-white font-mono">₹{reportData.pickleballDatabase.onlineRevenue}</span>
+                    <span className="font-bold text-white font-mono shrink-0">₹{reportData.pickleballDatabase.onlineRevenue}</span>
                   </div>
 
                   <div className="pt-2">
                     <span className="text-xs text-white/60 block mb-2 font-semibold">Booking Channel Breakdown:</span>
-                    <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="grid grid-cols-1 min-[360px]:grid-cols-3 gap-2 text-center">
                       <div className="p-2.5 rounded-xl bg-white/5">
                         <div className="text-[10px] text-white/40 uppercase">Online Web</div>
                         <div className="font-bold text-sm text-white mt-0.5">{reportData.pickleballDatabase.channelBreakdown.online}</div>
@@ -969,40 +1035,40 @@ export default function OwnerAdminPage() {
               </div>
 
               {/* Operating Specs & Court Utilization */}
-              <div className="p-6 sm:p-8 rounded-3xl bg-[#0d141f] border border-white/10">
-                <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-6">
-                  <div className="flex items-center gap-2.5">
-                    <Shield className="w-5 h-5 text-[#c7f711]" />
+              <div className="p-5 sm:p-8 rounded-3xl bg-[#0d141f] border border-white/10">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-white/10 mb-6">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Shield className="w-5 h-5 text-[#c7f711] shrink-0" aria-hidden="true" />
                     <div>
                       <h3 className="font-bold text-white text-base">Court Infrastructure &amp; Rules</h3>
                       <p className="text-[11px] text-white/50">{courts.length || 3} Active Courts Configured</p>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-[#c7f711]/20 text-[#c7f711] border border-[#c7f711]/30">
+                  <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-[#c7f711]/20 text-[#c7f711] border border-[#c7f711]/30 shrink-0">
                     Official Spec
                   </span>
                 </div>
 
                 <div className="space-y-4 text-xs">
-                  <div className="flex justify-between items-center py-2 border-b border-white/5">
+                  <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5">
                     <span className="text-white/60">Active Courts Available:</span>
-                    <span className="font-bold text-white font-mono">{courts.filter((c) => c.isActive !== false).length || courts.length} Active Courts</span>
+                    <span className="font-bold text-white font-mono text-right">{courts.filter((c) => c.isActive !== false).length || courts.length} Active Courts</span>
                   </div>
                   {courts.map((c) => (
-                    <div key={c.id} className="flex justify-between items-center py-2 border-b border-white/5">
-                      <span className="text-white/60">{c.name}:</span>
-                      <span className={`font-bold ${c.isActive === false ? "text-amber-400" : "text-emerald-400"}`}>
+                    <div key={c.id} className="flex justify-between items-center gap-3 py-2 border-b border-white/5">
+                      <span className="text-white/60 min-w-0 truncate">{c.name}:</span>
+                      <span className={`font-bold shrink-0 ${c.isActive === false ? "text-amber-400" : "text-emerald-400"}`}>
                         {c.isActive === false ? "Paused" : "Operational"}
                       </span>
                     </div>
                   ))}
-                  <div className="flex justify-between items-center py-2 border-b border-white/5">
+                  <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5">
                     <span className="text-white/60">Equipment Desk:</span>
-                    <span className="font-bold text-neutral-300">Managed at venue reception</span>
+                    <span className="font-bold text-neutral-300 text-right">Managed at venue reception</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b border-white/5">
+                  <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5">
                     <span className="text-white/60">Booking Validation:</span>
-                    <span className="font-bold text-emerald-400">Server overlap check + 10-min checkout hold</span>
+                    <span className="font-bold text-emerald-400 text-right">Server overlap check + 10-min checkout hold</span>
                   </div>
                 </div>
               </div>
@@ -1014,7 +1080,7 @@ export default function OwnerAdminPage() {
         {/* TAB: COURT MANAGEMENT (Owner & Staff) */}
         {/* ========================================================================= */}
         {activeTab === "courts" && (
-          <div className="bg-[#0d141f] border border-white/10 rounded-3xl p-6 sm:p-8">
+          <div className="bg-[#0d141f] border border-white/10 rounded-3xl p-4 sm:p-8">
             <CourtManager userRole="OWNER" onCourtChanged={fetchCourts} />
           </div>
         )}
@@ -1023,7 +1089,7 @@ export default function OwnerAdminPage() {
         {/* TAB: GALLERY MANAGEMENT (Owner & Staff) */}
         {/* ========================================================================= */}
         {activeTab === "gallery" && (
-          <div className="bg-[#0d141f] border border-white/10 rounded-3xl p-6 sm:p-8">
+          <div className="bg-[#0d141f] border border-white/10 rounded-3xl p-4 sm:p-8">
             <GalleryManager userRole="OWNER" />
           </div>
         )}
@@ -1032,16 +1098,16 @@ export default function OwnerAdminPage() {
         {/* TAB 2: PRICING & PEAK SURGE RULES */}
         {/* ========================================================================= */}
         {activeTab === "pricing" && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            <div className="lg:col-span-7 bg-[#0d141f] border border-white/10 rounded-3xl p-6 sm:p-8">
-              <div className="flex items-center justify-between mb-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
+            <div className="lg:col-span-7 bg-[#0d141f] border border-white/10 rounded-3xl p-5 sm:p-8">
+              <div className="flex flex-wrap items-start justify-between gap-2 mb-4">
                 <div>
                   <h2 className="text-xl font-bold text-white">Pickleball Court Pricing &amp; Surge Rates</h2>
                   <p className="text-xs text-white/60 mt-1">
                     Configure standard hourly pricing and dynamic peak surge rates across all 3 courts.
                   </p>
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-[#c7f711]/20 text-[#c7f711] border border-[#c7f711]/40 px-3 py-1 rounded-full">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-[#c7f711]/20 text-[#c7f711] border border-[#c7f711]/40 px-3 py-1 rounded-full shrink-0">
                   Real-time Engine
                 </span>
               </div>
@@ -1055,45 +1121,47 @@ export default function OwnerAdminPage() {
               <form onSubmit={handleUpdatePricing} className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                    <label className="text-xs font-semibold text-white/80 block mb-1">
+                    <label htmlFor="base-price-input" className="text-xs font-semibold text-white/80 block mb-1">
                       Standard Base Price (₹ / hr)
                     </label>
                     <span className="text-[11px] text-white/40 block mb-2">Off-peak morning &amp; afternoon</span>
                     <div className="relative">
-                      <span className="absolute left-3.5 top-3 text-sm font-bold text-[#c7f711]">₹</span>
+                      <span className="absolute left-3.5 top-3 text-sm font-bold text-[#c7f711]" aria-hidden="true">₹</span>
                       <input
+                        id="base-price-input"
                         type="number"
                         min={100}
                         max={2000}
                         value={basePrice}
                         onChange={(e) => setBasePrice(Number(e.target.value))}
-                        className="w-full bg-[#161f2e] border border-white/15 rounded-xl pl-8 pr-4 py-2.5 text-base font-bold text-white focus:outline-none focus:border-[#c7f711]"
+                        className="w-full min-h-[44px] bg-[#161f2e] border border-white/15 rounded-xl pl-8 pr-4 py-2.5 text-base font-bold text-white focus:outline-none focus:border-[#c7f711]"
                       />
                     </div>
                   </div>
 
                   <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20">
-                    <label className="text-xs font-semibold text-purple-200 block mb-1">
+                    <label htmlFor="peak-surge-price-input" className="text-xs font-semibold text-purple-200 block mb-1">
                       Peak Surge Price (₹ / hr)
                     </label>
                     <span className="text-[11px] text-purple-300/60 block mb-2">Evening high-demand slots</span>
                     <div className="relative">
-                      <span className="absolute left-3.5 top-3 text-sm font-bold text-purple-400">₹</span>
+                      <span className="absolute left-3.5 top-3 text-sm font-bold text-purple-400" aria-hidden="true">₹</span>
                       <input
+                        id="peak-surge-price-input"
                         type="number"
                         min={100}
                         max={3000}
                         value={peakSurgePrice}
                         onChange={(e) => setPeakSurgePrice(Number(e.target.value))}
-                        className="w-full bg-[#161f2e] border border-purple-500/30 rounded-xl pl-8 pr-4 py-2.5 text-base font-bold text-white focus:outline-none focus:border-purple-400"
+                        className="w-full min-h-[44px] bg-[#161f2e] border border-purple-500/30 rounded-xl pl-8 pr-4 py-2.5 text-base font-bold text-white focus:outline-none focus:border-purple-400"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Peak Surge Toggle */}
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
-                  <div>
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
                     <span className="text-sm font-bold text-white block">Enable Peak Surge Pricing</span>
                     <span className="text-xs text-white/50">
                       When enabled, evening peak slots automatically bill at ₹{peakSurgePrice}/hr instead of ₹{basePrice}/hr
@@ -1101,14 +1169,17 @@ export default function OwnerAdminPage() {
                   </div>
                   <button
                     type="button"
+                    role="switch"
+                    aria-checked={isPeakSurgeActive}
+                    aria-label="Enable Peak Surge Pricing"
                     onClick={() => setIsPeakSurgeActive(!isPeakSurgeActive)}
-                    className={`w-14 h-8 rounded-full transition-colors relative p-1 flex items-center ${
+                    className={`w-14 h-9 shrink-0 rounded-full transition-colors relative p-1 flex items-center ${
                       isPeakSurgeActive ? "bg-[#c7f711]" : "bg-white/20"
                     }`}
                   >
                     <div
                       className={`w-6 h-6 rounded-full bg-black transition-transform ${
-                        isPeakSurgeActive ? "translate-x-6" : "translate-x-0"
+                        isPeakSurgeActive ? "translate-x-5" : "translate-x-0"
                       }`}
                     />
                   </button>
@@ -1116,9 +1187,9 @@ export default function OwnerAdminPage() {
 
                 {/* Peak Hours Checklist */}
                 <div>
-                  <label className="text-xs font-semibold text-white/80 block mb-2">
+                  <span className="text-xs font-semibold text-white/80 block mb-2">
                     Peak Surge Time Windows (Select active peak hours):
-                  </label>
+                  </span>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {["17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"].map((hour) => {
                       const isSelected = peakHours.includes(hour);
@@ -1126,6 +1197,7 @@ export default function OwnerAdminPage() {
                         <button
                           key={hour}
                           type="button"
+                          aria-pressed={isSelected}
                           onClick={() => {
                             if (isSelected) {
                               setPeakHours(peakHours.filter((h) => h !== hour));
@@ -1133,10 +1205,10 @@ export default function OwnerAdminPage() {
                               setPeakHours([...peakHours, hour]);
                             }
                           }}
-                          className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all ${
+                          className={`py-2.5 px-3 min-h-[42px] rounded-xl border text-xs font-semibold transition-all ${
                             isSelected
                               ? "bg-purple-600 text-white border-purple-400 shadow-md"
-                              : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
+                              : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
                           }`}
                         >
                           {hour} ({Number(hour.slice(0, 2)) >= 12 ? `${Number(hour.slice(0, 2)) - 12} PM` : hour})
@@ -1152,7 +1224,7 @@ export default function OwnerAdminPage() {
 
                 <button
                   type="submit"
-                  className="w-full bg-[#c7f711] hover:bg-[#b0dc0d] text-black font-extrabold text-sm py-3.5 rounded-2xl transition-all shadow-lg shadow-[#c7f711]/20"
+                  className="w-full min-h-[48px] bg-[#c7f711] hover:bg-[#b0dc0d] text-black font-extrabold text-sm py-3.5 rounded-2xl transition-all shadow-lg shadow-[#c7f711]/20"
                 >
                   Save Pricing &amp; Peak Surge Rules
                 </button>
@@ -1160,9 +1232,9 @@ export default function OwnerAdminPage() {
             </div>
 
             {/* Active Courts Summary Card */}
-            <div className="lg:col-span-5 bg-[#0d141f] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-4">
+            <div className="lg:col-span-5 bg-[#0d141f] border border-white/10 rounded-3xl p-5 sm:p-8 space-y-4">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Shield className="w-4 h-4 text-[#c7f711]" />
+                <Shield className="w-4 h-4 text-[#c7f711] shrink-0" aria-hidden="true" />
                 <span>Active Courts &amp; Rate Structure</span>
               </h3>
               <p className="text-xs text-white/60">
@@ -1171,12 +1243,12 @@ export default function OwnerAdminPage() {
 
               <div className="space-y-3 pt-2">
                 {courts.map((c) => (
-                  <div key={c.id} className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
-                    <div>
-                      <div className="font-bold text-sm text-white">{c.name}</div>
+                  <div key={c.id} className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm text-white truncate">{c.name}</div>
                       <div className="text-[11px] text-white/50">Pickleball Arena</div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <div className="text-xs font-bold text-[#c7f711]">₹{basePrice}/hr</div>
                       <div className="text-[10px] text-purple-300">Peak: ₹{peakSurgePrice}/hr</div>
                     </div>
@@ -1191,17 +1263,17 @@ export default function OwnerAdminPage() {
         {/* TAB 3: ARENA OPERATING HOURS & HOLIDAY CLOSURES */}
         {/* ========================================================================= */}
         {activeTab === "schedule" && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
             {/* Form Column */}
-            <div className="lg:col-span-7 bg-[#0d141f] border border-white/10 rounded-3xl p-6 sm:p-8">
-              <div className="flex items-center justify-between mb-4">
+            <div className="lg:col-span-7 bg-[#0d141f] border border-white/10 rounded-3xl p-5 sm:p-8">
+              <div className="flex flex-wrap items-start justify-between gap-2 mb-4">
                 <div>
                   <h2 className="text-xl font-bold text-white">Arena Operating Hours &amp; Holiday Closures</h2>
                   <p className="text-xs text-white/60 mt-1">
                     Set arena holiday closures (e.g. Diwali Holiday) or adjust custom opening/closing hours for any specific date.
                   </p>
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-full">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-full shrink-0">
                   Dynamic Schedule
                 </span>
               </div>
@@ -1214,24 +1286,26 @@ export default function OwnerAdminPage() {
 
               <form onSubmit={handleSaveSchedule} className="space-y-6">
                 <div>
-                  <label className="text-xs font-semibold text-white/80 block mb-2">
+                  <label htmlFor="schedule-date-input" className="text-xs font-semibold text-white/80 block mb-2">
                     Target Date for Special Schedule / Holiday
                   </label>
                   <input
+                    id="schedule-date-input"
                     type="date"
                     required
                     value={scheduleDate}
                     onChange={(e) => setScheduleDate(e.target.value)}
-                    className="w-full bg-[#161f2e] border border-white/15 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#c7f711]"
+                    className="w-full min-w-0 min-h-[44px] bg-[#161f2e] border border-white/15 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:outline-none focus:border-[#c7f711]"
                   />
                 </div>
 
                 {/* Status Toggle: Open vs Closed */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     type="button"
+                    aria-pressed={!scheduleIsClosed}
                     onClick={() => setScheduleIsClosed(false)}
-                    className={`p-4 rounded-2xl border text-left transition-all ${
+                    className={`p-4 min-h-[44px] rounded-2xl border text-left transition-all ${
                       !scheduleIsClosed
                         ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300 shadow-md"
                         : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
@@ -1243,8 +1317,9 @@ export default function OwnerAdminPage() {
 
                   <button
                     type="button"
+                    aria-pressed={scheduleIsClosed}
                     onClick={() => setScheduleIsClosed(true)}
-                    className={`p-4 rounded-2xl border text-left transition-all ${
+                    className={`p-4 min-h-[44px] rounded-2xl border text-left transition-all ${
                       scheduleIsClosed
                         ? "bg-amber-500/20 border-amber-500/40 text-amber-300 shadow-md"
                         : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
@@ -1258,16 +1333,17 @@ export default function OwnerAdminPage() {
                 {/* If Closed: Holiday Reason */}
                 {scheduleIsClosed ? (
                   <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3">
-                    <label className="text-xs font-semibold text-amber-200 block">
+                    <label htmlFor="closure-reason-input" className="text-xs font-semibold text-amber-200 block">
                       Holiday / Closure Reason (Displayed to Customers on Website) *
                     </label>
                     <input
+                      id="closure-reason-input"
                       type="text"
                       required
                       placeholder="e.g. Diwali Festive Holiday, Monsoon Court Maintenance"
                       value={scheduleClosureReason}
                       onChange={(e) => setScheduleClosureReason(e.target.value)}
-                      className="w-full bg-[#161f2e] border border-amber-500/40 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-amber-400"
+                      className="w-full min-w-0 min-h-[44px] bg-[#161f2e] border border-amber-500/40 rounded-xl px-4 py-3 text-base sm:text-sm text-white placeholder-white/30 focus:outline-none focus:border-amber-400"
                     />
                     <div className="flex flex-wrap gap-2 pt-1">
                       {["Diwali Festive Holiday", "Monsoon Maintenance", "National Tournament", "New Year Eve"].map((preset) => (
@@ -1275,7 +1351,7 @@ export default function OwnerAdminPage() {
                           key={preset}
                           type="button"
                           onClick={() => setScheduleClosureReason(preset)}
-                          className="text-[10px] font-semibold bg-white/10 hover:bg-white/20 text-white px-2.5 py-1 rounded-full border border-white/10"
+                          className="text-[11px] font-semibold bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 min-h-[34px] rounded-full border border-white/10"
                         >
                           + {preset}
                         </button>
@@ -1285,28 +1361,30 @@ export default function OwnerAdminPage() {
                 ) : (
                   /* If Open: Dynamic Hours (supports overnight windows e.g. 5pm to 5am, 6pm to 10am) */
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="text-xs font-semibold text-white/80 block mb-2">
+                        <label htmlFor="schedule-open-time" className="text-xs font-semibold text-white/80 block mb-2">
                           Arena Opening Time
                         </label>
                         <input
+                          id="schedule-open-time"
                           type="time"
                           value={scheduleOpenTime}
                           onChange={(e) => setScheduleOpenTime(e.target.value)}
-                          className="w-full bg-[#161f2e] border border-white/15 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#c7f711]"
+                          className="w-full min-w-0 min-h-[44px] bg-[#161f2e] border border-white/15 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:outline-none focus:border-[#c7f711]"
                         />
                       </div>
 
                       <div>
-                        <label className="text-xs font-semibold text-white/80 block mb-2">
+                        <label htmlFor="schedule-close-time" className="text-xs font-semibold text-white/80 block mb-2">
                           Arena Closing Time
                         </label>
                         <input
+                          id="schedule-close-time"
                           type="time"
                           value={scheduleCloseTime}
                           onChange={(e) => setScheduleCloseTime(e.target.value)}
-                          className="w-full bg-[#161f2e] border border-white/15 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#c7f711]"
+                          className="w-full min-w-0 min-h-[44px] bg-[#161f2e] border border-white/15 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:outline-none focus:border-[#c7f711]"
                         />
                       </div>
                     </div>
@@ -1314,14 +1392,14 @@ export default function OwnerAdminPage() {
                     {/* Quick Preset Buttons */}
                     <div>
                       <span className="text-[11px] text-white/50 block mb-2">Quick Operating Window Presets:</span>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <button
                           type="button"
                           onClick={() => {
                             setScheduleOpenTime("06:00");
                             setScheduleCloseTime("23:00");
                           }}
-                          className="p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-center text-xs text-white"
+                          className="p-2.5 min-h-[44px] rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-center text-xs text-white"
                         >
                           <span className="font-semibold block">Regular Day</span>
                           <span className="text-[10px] text-white/50">6:00 AM – 11:00 PM</span>
@@ -1333,7 +1411,7 @@ export default function OwnerAdminPage() {
                             setScheduleOpenTime("17:00");
                             setScheduleCloseTime("05:00");
                           }}
-                          className="p-2.5 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-center text-xs text-purple-300"
+                          className="p-2.5 min-h-[44px] rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-center text-xs text-purple-300"
                         >
                           <span className="font-semibold block">Overnight (5PM-5AM)</span>
                           <span className="text-[10px] opacity-75">5:00 PM to 5:00 AM</span>
@@ -1345,7 +1423,7 @@ export default function OwnerAdminPage() {
                             setScheduleOpenTime("18:00");
                             setScheduleCloseTime("10:00");
                           }}
-                          className="p-2.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-center text-xs text-cyan-300"
+                          className="p-2.5 min-h-[44px] rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-center text-xs text-cyan-300"
                         >
                           <span className="font-semibold block">Night Owl (6PM-10AM)</span>
                           <span className="text-[10px] opacity-75">6:00 PM to 10:00 AM</span>
@@ -1358,7 +1436,7 @@ export default function OwnerAdminPage() {
                 <button
                   type="submit"
                   disabled={scheduleLoading}
-                  className="w-full bg-[#c7f711] hover:bg-[#b0dc0d] text-black font-extrabold text-sm py-3.5 rounded-2xl transition-all shadow-lg shadow-[#c7f711]/20 disabled:opacity-50"
+                  className="w-full min-h-[48px] bg-[#c7f711] hover:bg-[#b0dc0d] text-black font-extrabold text-sm py-3.5 rounded-2xl transition-all shadow-lg shadow-[#c7f711]/20 disabled:opacity-50"
                 >
                   {scheduleLoading ? "Saving Schedule..." : "Save Arena Schedule for Date"}
                 </button>
@@ -1366,8 +1444,8 @@ export default function OwnerAdminPage() {
             </div>
 
             {/* Configured Special Schedules List */}
-            <div className="lg:col-span-5 bg-[#0d141f] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-4">
-              <h3 className="text-base font-bold text-white flex items-center justify-between">
+            <div className="lg:col-span-5 bg-[#0d141f] border border-white/10 rounded-3xl p-5 sm:p-8 space-y-4">
+              <h3 className="text-base font-bold text-white flex flex-wrap items-center justify-between gap-2">
                 <span>Configured Arena Schedules</span>
                 <span className="text-xs text-white/50 font-normal">{allSchedules.length} saved</span>
               </h3>
@@ -1386,7 +1464,7 @@ export default function OwnerAdminPage() {
                           : "bg-white/5 border-white/10"
                       }`}
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="font-bold text-xs font-mono text-white">
                           {item.date === "DEFAULT" ? "DEFAULT (Baseline)" : item.date}
                         </span>
@@ -1412,7 +1490,7 @@ export default function OwnerAdminPage() {
                           <button
                             type="button"
                             onClick={() => handleResetSchedule(item.date)}
-                            className="text-[11px] text-white/40 hover:text-white underline"
+                            className="text-xs text-white/60 hover:text-white underline min-h-[34px] px-1"
                           >
                             Reset to Default (06:00 – 23:00)
                           </button>
@@ -1434,7 +1512,7 @@ export default function OwnerAdminPage() {
         {/* TAB 4: SCHEDULE BLOCKS & MAINTENANCE */}
         {/* ========================================================================= */}
         {activeTab === "blocks" && (
-          <div className="max-w-2xl bg-[#0d141f] border border-white/10 rounded-3xl p-6 sm:p-8">
+          <div className="max-w-2xl bg-[#0d141f] border border-white/10 rounded-3xl p-5 sm:p-8">
             <h2 className="text-xl font-bold text-white mb-2">Court Schedule Closure / Block</h2>
             <p className="text-xs text-white/60 mb-6">
               Lock out court slots for court resurfacing, net maintenance, academy training, or tournaments.
@@ -1448,11 +1526,12 @@ export default function OwnerAdminPage() {
 
             <form onSubmit={handleCreateBlock} className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-white/80 block mb-2">Court</label>
+                <label htmlFor="block-court-select" className="text-xs font-semibold text-white/80 block mb-2">Court</label>
                 <select
+                  id="block-court-select"
                   value={blockCourtId}
                   onChange={(e) => setBlockCourtId(e.target.value)}
-                  className="w-full bg-[#161f2e] border border-white/15 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#c7f711]"
+                  className="w-full min-w-0 min-h-[44px] bg-[#161f2e] border border-white/15 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:outline-none focus:border-[#c7f711]"
                 >
                   {courts.map((court) => (
                     <option key={court.id} value={court.id}>
@@ -1464,40 +1543,44 @@ export default function OwnerAdminPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="text-xs font-semibold text-white/80 block mb-2">Date</label>
+                  <label htmlFor="block-date-input" className="text-xs font-semibold text-white/80 block mb-2">Date</label>
                   <input
+                    id="block-date-input"
                     type="date"
                     value={blockDate}
                     onChange={(e) => setBlockDate(e.target.value)}
-                    className="w-full bg-white/5 border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-[#c7f711]"
+                    className="w-full min-w-0 min-h-[44px] bg-white/5 border border-white/15 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-white focus:outline-none focus:border-[#c7f711]"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-white/80 block mb-2">Start Time</label>
+                  <label htmlFor="block-start-time" className="text-xs font-semibold text-white/80 block mb-2">Start Time</label>
                   <input
+                    id="block-start-time"
                     type="time"
                     value={blockStartTime}
                     onChange={(e) => setBlockStartTime(e.target.value)}
-                    className="w-full bg-[#161f2e] border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-[#c7f711]"
+                    className="w-full min-w-0 min-h-[44px] bg-[#161f2e] border border-white/15 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-white focus:outline-none focus:border-[#c7f711]"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-white/80 block mb-2">End Time</label>
+                  <label htmlFor="block-end-time" className="text-xs font-semibold text-white/80 block mb-2">End Time</label>
                   <input
+                    id="block-end-time"
                     type="time"
                     value={blockEndTime}
                     onChange={(e) => setBlockEndTime(e.target.value)}
-                    className="w-full bg-[#161f2e] border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-[#c7f711]"
+                    className="w-full min-w-0 min-h-[44px] bg-[#161f2e] border border-white/15 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-white focus:outline-none focus:border-[#c7f711]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-white/80 block mb-2">Closure Reason</label>
+                <label htmlFor="block-reason-select" className="text-xs font-semibold text-white/80 block mb-2">Closure Reason</label>
                 <select
+                  id="block-reason-select"
                   value={blockReason}
                   onChange={(e) => setBlockReason(e.target.value as any)}
-                  className="w-full bg-[#161f2e] border border-white/15 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#c7f711]"
+                  className="w-full min-w-0 min-h-[44px] bg-[#161f2e] border border-white/15 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:outline-none focus:border-[#c7f711]"
                 >
                   <option value="MAINTENANCE">Court Resurfacing / Net Maintenance</option>
                   <option value="TOURNAMENT">Club Tournament / League</option>
@@ -1507,19 +1590,20 @@ export default function OwnerAdminPage() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-white/80 block mb-2">Notes / Internal Reference</label>
+                <label htmlFor="block-notes-input" className="text-xs font-semibold text-white/80 block mb-2">Notes / Internal Reference</label>
                 <input
+                  id="block-notes-input"
                   type="text"
                   placeholder="e.g. Floodlight repairs on court 1"
                   value={blockNotes}
                   onChange={(e) => setBlockNotes(e.target.value)}
-                  className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#c7f711]"
+                  className="w-full min-w-0 min-h-[44px] bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:outline-none focus:border-[#c7f711]"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-red-500 hover:bg-red-600 text-white font-extrabold text-sm py-3.5 rounded-2xl transition-all shadow-lg shadow-red-500/20 mt-4"
+                className="w-full min-h-[48px] bg-red-500 hover:bg-red-600 text-white font-extrabold text-sm py-3.5 rounded-2xl transition-all shadow-lg shadow-red-500/20 mt-4"
               >
                 Apply Court Closure Block
               </button>

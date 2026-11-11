@@ -17,36 +17,59 @@
   --font-sans: 'Switzer Variable', var(--font-manrope), sans-serif, Manrope;
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: var(--font-sans);
-  font-size: 12px;
-  line-height: normal;
-  font-weight: 400;
-  overflow-x: hidden;
-}
+@layer base {
+  body {
+    color: var(--foreground);
+    background: var(--background);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    line-height: normal;
+    font-weight: 400;
+    overflow-x: hidden;
+  }
 
-h1 {
-  font-size: 64px;
-  font-weight: 600;
-  color: #ffffff;
-  line-height: 1.05;
-}
+  h1 {
+    font-size: 2.25rem;
+    font-weight: 600;
+    color: #ffffff;
+    line-height: 1.08;
+  }
 
-h2 {
-  font-size: 44px;
-  font-weight: 500;
-  text-transform: capitalize;
-  color: #ffffff;
-  line-height: 1.15;
-}
+  h2 {
+    font-size: 1.75rem;
+    font-weight: 500;
+    text-transform: capitalize;
+    color: #ffffff;
+    line-height: 1.15;
+  }
 
-h3 {
-  font-size: 34px;
-  font-weight: 500;
-  color: #0d1a2c;
-  line-height: 1.2;
+  h3 {
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: #0d1a2c;
+    line-height: 1.2;
+  }
+
+  @media (min-width: 640px) {
+    h1 {
+      font-size: 4rem;
+      line-height: 1.05;
+    }
+
+    h2 {
+      font-size: 2.75rem;
+    }
+
+    h3 {
+      font-size: 2.125rem;
+    }
+  }
+
+  :is(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid #0000ee;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(199, 247, 17, 0.85);
+  }
 }
 
 .button-primary {
@@ -54,17 +77,38 @@ h3 {
   color: #0000EE;
   border-radius: 99px;
   padding: 12px 18px;
+  min-height: 44px;
   font-size: 12px;
   font-weight: 500;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   text-decoration: none;
 }
 
 .button-primary:hover {
   transform: scale(1.03);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .button-primary:hover {
+    transform: none;
+  }
 }
 
 .card {

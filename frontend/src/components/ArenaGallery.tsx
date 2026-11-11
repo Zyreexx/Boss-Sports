@@ -127,8 +127,18 @@ export default function ArenaGallery({ standardRate = 400 }: { standardRate?: nu
   const [isMuted, setIsMuted] = useState(true);
   const [playingMap, setPlayingMap] = useState<Record<string, boolean>>({});
   const [modalVideoFailed, setModalVideoFailed] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
   const hasVideos = galleryItems.some((item) => item.type === "video" && item.videoSrc);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setPrefersReducedMotion(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => {
     fetch("/api/gallery", { cache: "no-store" })
@@ -200,7 +210,7 @@ export default function ArenaGallery({ standardRate = 400 }: { standardRate?: nu
   return (
     <section
       id="gallery"
-      className="relative w-full py-20 sm:py-24 px-4 sm:px-8 lg:px-12 bg-gradient-to-b from-[#bcd4ea] via-[#cce0f2] to-[#bcd4ea] text-neutral-900 overflow-hidden"
+      className="relative w-full py-14 sm:py-20 lg:py-24 px-4 sm:px-8 lg:px-12 bg-gradient-to-b from-[#bcd4ea] via-[#cce0f2] to-[#bcd4ea] text-neutral-900 overflow-hidden"
     >
       {/* Background Court Atmosphere Watermark */}
       <div className="absolute inset-0 pointer-events-none opacity-25 mix-blend-overlay">
@@ -209,31 +219,32 @@ export default function ArenaGallery({ standardRate = 400 }: { standardRate?: nu
 
       <div className="max-w-[1360px] mx-auto relative z-10">
         {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-5 sm:gap-6 mb-8 sm:mb-12">
           <div>
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/90 border border-white/60 shadow-sm mb-3">
-              <span className="w-2 h-2 rounded-full bg-[#00A852] animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-[#00A852] animate-pulse shrink-0" />
               <span className="text-[11px] font-bold text-neutral-800 tracking-wider uppercase">
                 Live Action &amp; Arena Highlights
               </span>
             </div>
-            <h2 className="text-3xl sm:text-4xl lg:text-[46px] font-black text-neutral-950 tracking-tight leading-[1.12]">
+            <h2 className="text-2xl sm:text-4xl lg:text-[46px] font-black text-neutral-950 tracking-tight leading-[1.12]">
               Experience Boss Pickleball In Motion
             </h2>
-            <p className="text-xs sm:text-sm text-neutral-700 max-w-xl mt-2 leading-relaxed">
+            <p className="text-xs sm:text-sm text-neutral-800 max-w-xl mt-2 leading-relaxed">
               Explore court highlights, player matchplay, and equipment available at Boss Pickleball Gondal.
             </p>
           </div>
 
           {/* Interactive Controls & Filters */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex p-1 rounded-full bg-white/80 backdrop-blur-md border border-white/70 shadow-sm">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+            <div role="group" aria-label="Filter gallery items" className="flex flex-wrap items-center gap-1 p-1.5 rounded-2xl sm:rounded-full bg-white/85 backdrop-blur-md border border-white/70 shadow-sm max-w-full">
               <button
                 type="button"
+                aria-pressed={activeFilter === "all"}
                 onClick={() => setActiveFilter("all")}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${activeFilter === "all"
+                className={`px-3.5 py-1.5 min-h-[38px] rounded-full text-xs font-bold transition-all ${activeFilter === "all"
                   ? "bg-[#0d1a2c] text-white shadow-sm"
-                  : "text-neutral-700 hover:text-black"
+                  : "text-neutral-800 hover:text-black hover:bg-black/5"
                   }`}
               >
                 All
@@ -241,10 +252,11 @@ export default function ArenaGallery({ standardRate = 400 }: { standardRate?: nu
               {hasVideos && (
                 <button
                   type="button"
+                  aria-pressed={activeFilter === "video"}
                   onClick={() => setActiveFilter("video")}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${activeFilter === "video"
+                  className={`px-3.5 py-1.5 min-h-[38px] rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${activeFilter === "video"
                     ? "bg-[#0d1a2c] text-white shadow-sm"
-                    : "text-neutral-700 hover:text-black"
+                    : "text-neutral-800 hover:text-black hover:bg-black/5"
                     }`}
                 >
                   <Video className="w-3.5 h-3.5 text-[#c7f711]" />
@@ -253,10 +265,11 @@ export default function ArenaGallery({ standardRate = 400 }: { standardRate?: nu
               )}
               <button
                 type="button"
+                aria-pressed={activeFilter === "image"}
                 onClick={() => setActiveFilter("image")}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${activeFilter === "image"
+                className={`px-3.5 py-1.5 min-h-[38px] rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${activeFilter === "image"
                   ? "bg-[#0d1a2c] text-white shadow-sm"
-                  : "text-neutral-700 hover:text-black"
+                  : "text-neutral-800 hover:text-black hover:bg-black/5"
                   }`}
               >
                 <Camera className="w-3.5 h-3.5 text-blue-600" />
@@ -264,10 +277,11 @@ export default function ArenaGallery({ standardRate = 400 }: { standardRate?: nu
               </button>
               <button
                 type="button"
+                aria-pressed={activeFilter === "gear"}
                 onClick={() => setActiveFilter("gear")}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${activeFilter === "gear"
+                className={`px-3.5 py-1.5 min-h-[38px] rounded-full text-xs font-bold transition-all ${activeFilter === "gear"
                   ? "bg-[#0d1a2c] text-white shadow-sm"
-                  : "text-neutral-700 hover:text-black"
+                  : "text-neutral-800 hover:text-black hover:bg-black/5"
                   }`}
               >
                 Gear &amp; Courts
@@ -277,19 +291,21 @@ export default function ArenaGallery({ standardRate = 400 }: { standardRate?: nu
             {hasVideos && (
               <button
                 type="button"
+                aria-pressed={!isMuted}
+                aria-label={isMuted ? "Unmute gallery videos" : "Mute gallery videos"}
                 onClick={() => setIsMuted(!isMuted)}
-                className="p-2.5 rounded-full bg-white/90 border border-white/70 shadow-sm text-neutral-800 hover:bg-white transition-all flex items-center gap-1.5 text-xs font-bold"
+                className="px-3.5 py-2 min-h-[44px] rounded-full bg-white/90 border border-white/70 shadow-sm text-neutral-900 hover:bg-white transition-all flex items-center gap-1.5 text-xs font-bold"
                 title={isMuted ? "Unmute all videos" : "Mute all videos"}
               >
                 {isMuted ? (
                   <>
-                    <VolumeX className="w-4 h-4 text-neutral-500" />
-                    <span className="hidden sm:inline">Muted</span>
+                    <VolumeX className="w-4 h-4 text-neutral-600" />
+                    <span>Muted</span>
                   </>
                 ) : (
                   <>
                     <Volume2 className="w-4 h-4 text-[#00A852]" />
-                    <span className="hidden sm:inline">Sound On</span>
+                    <span>Sound On</span>
                   </>
                 )}
               </button>
@@ -297,16 +313,16 @@ export default function ArenaGallery({ standardRate = 400 }: { standardRate?: nu
           </div>
         </div>
 
-        {/* 4-Column Mosaic Gallery Grid Matching Reference Images */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {/* Responsive Gallery Mosaic (1 col phone -> 2 cols sm/tablet -> 4 cols desktop) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
           {/* Column 1 */}
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-4 sm:gap-5">
             {col1.map((item) => (
               <GalleryCard
                 key={item.id}
                 item={item}
                 isMuted={isMuted}
-                isPlaying={playingMap[item.id] ?? true}
+                isPlaying={playingMap[item.id] ?? !prefersReducedMotion}
                 onTogglePlay={(e) => toggleVideoPlayback(item.id, e)}
                 onOpen={() => setActiveModalItem(item)}
               />
@@ -314,13 +330,13 @@ export default function ArenaGallery({ standardRate = 400 }: { standardRate?: nu
           </div>
 
           {/* Column 2 */}
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-4 sm:gap-5">
             {col2.map((item) => (
               <GalleryCard
                 key={item.id}
                 item={item}
                 isMuted={isMuted}
-                isPlaying={playingMap[item.id] ?? true}
+                isPlaying={playingMap[item.id] ?? !prefersReducedMotion}
                 onTogglePlay={(e) => toggleVideoPlayback(item.id, e)}
                 onOpen={() => setActiveModalItem(item)}
               />
@@ -328,13 +344,13 @@ export default function ArenaGallery({ standardRate = 400 }: { standardRate?: nu
           </div>
 
           {/* Column 3 */}
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-4 sm:gap-5">
             {col3.map((item) => (
               <GalleryCard
                 key={item.id}
                 item={item}
                 isMuted={isMuted}
-                isPlaying={playingMap[item.id] ?? true}
+                isPlaying={playingMap[item.id] ?? !prefersReducedMotion}
                 onTogglePlay={(e) => toggleVideoPlayback(item.id, e)}
                 onOpen={() => setActiveModalItem(item)}
               />
@@ -342,13 +358,13 @@ export default function ArenaGallery({ standardRate = 400 }: { standardRate?: nu
           </div>
 
           {/* Column 4 */}
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-4 sm:gap-5">
             {col4.map((item) => (
               <GalleryCard
                 key={item.id}
                 item={item}
                 isMuted={isMuted}
-                isPlaying={playingMap[item.id] ?? true}
+                isPlaying={playingMap[item.id] ?? !prefersReducedMotion}
                 onTogglePlay={(e) => toggleVideoPlayback(item.id, e)}
                 onOpen={() => setActiveModalItem(item)}
               />
@@ -363,23 +379,23 @@ export default function ArenaGallery({ standardRate = 400 }: { standardRate?: nu
           role="dialog"
           aria-modal="true"
           aria-labelledby="gallery-lightbox-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/90 backdrop-blur-xl animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/90 backdrop-blur-xl animate-in fade-in duration-200"
         >
-          <div className="relative max-w-4xl w-full bg-[#0d141f] border border-white/15 rounded-3xl overflow-hidden shadow-2xl text-white">
+          <div className="relative max-w-4xl w-full max-h-[92vh] overflow-y-auto bg-[#0d141f] border border-white/15 rounded-2xl sm:rounded-3xl shadow-2xl text-white flex flex-col">
             {/* Top Bar */}
-            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10">
-              <div className="flex items-center gap-3">
-                <h3 id="gallery-lightbox-title" className="font-bold text-sm sm:text-base text-white">
+            <div className="flex items-center justify-between gap-3 p-4 sm:p-5 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <h3 id="gallery-lightbox-title" className="font-bold text-sm sm:text-base text-white truncate">
                   {activeModalItem.title}
                 </h3>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 {activeModalItem.type === "video" && activeModalItem.videoSrc && !modalVideoFailed && (
                   <button
                     type="button"
                     onClick={() => setIsMuted(!isMuted)}
-                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
+                    className="min-w-[40px] min-h-[40px] p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all flex items-center justify-center"
                     title="Toggle Mute"
                     aria-label={isMuted ? "Unmute video" : "Mute video"}
                   >
@@ -392,7 +408,7 @@ export default function ArenaGallery({ standardRate = 400 }: { standardRate?: nu
                     setActiveModalItem(null);
                     setModalVideoFailed(false);
                   }}
-                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
+                  className="min-w-[40px] min-h-[40px] p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all flex items-center justify-center"
                   aria-label="Close modal"
                 >
                   <X className="w-4 h-4" />
@@ -401,12 +417,12 @@ export default function ArenaGallery({ standardRate = 400 }: { standardRate?: nu
             </div>
 
             {/* Media Content */}
-            <div className="relative aspect-video w-full bg-black flex items-center justify-center overflow-hidden">
+            <div className="relative aspect-video w-full bg-black flex items-center justify-center overflow-hidden shrink-0">
               {activeModalItem.type === "video" && activeModalItem.videoSrc && !modalVideoFailed ? (
                 <video
                   src={activeModalItem.videoSrc}
-                  autoPlay
-                  loop
+                  autoPlay={!prefersReducedMotion}
+                  loop={!prefersReducedMotion}
                   muted={isMuted}
                   controls
                   playsInline
@@ -424,12 +440,12 @@ export default function ArenaGallery({ standardRate = 400 }: { standardRate?: nu
                 </div>
               )}
 
-              {/* Prev / Next Arrows */}
+              {/* Prev / Next Arrows positioned above bottom video controls */}
               <button
                 type="button"
                 onClick={handlePrevModal}
                 aria-label="Previous gallery item"
-                className="absolute left-4 p-3 rounded-full bg-black/60 hover:bg-black/90 text-white border border-white/20 transition-all"
+                className="absolute left-2 sm:left-4 top-[42%] -translate-y-1/2 min-w-[40px] min-h-[40px] p-2 sm:p-3 rounded-full bg-black/65 hover:bg-black/90 text-white border border-white/25 transition-all flex items-center justify-center"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
@@ -437,7 +453,7 @@ export default function ArenaGallery({ standardRate = 400 }: { standardRate?: nu
                 type="button"
                 onClick={handleNextModal}
                 aria-label="Next gallery item"
-                className="absolute right-4 p-3 rounded-full bg-black/60 hover:bg-black/90 text-white border border-white/20 transition-all"
+                className="absolute right-2 sm:right-4 top-[42%] -translate-y-1/2 min-w-[40px] min-h-[40px] p-2 sm:p-3 rounded-full bg-black/65 hover:bg-black/90 text-white border border-white/25 transition-all flex items-center justify-center"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
@@ -445,13 +461,13 @@ export default function ArenaGallery({ standardRate = 400 }: { standardRate?: nu
 
             {/* Caption Footer */}
             <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0a1019]">
-              <p className="text-xs text-white/80 leading-relaxed max-w-xl">
+              <p className="text-xs sm:text-sm text-white/85 leading-relaxed max-w-xl">
                 {activeModalItem.caption}
               </p>
               <a
                 href="#booking"
                 onClick={() => setActiveModalItem(null)}
-                className="px-5 py-2.5 rounded-full bg-[#c7f711] hover:bg-[#b0dc0d] text-black font-extrabold text-xs tracking-tight transition-all text-center"
+                className="px-5 py-2.5 min-h-[44px] w-full sm:w-auto inline-flex items-center justify-center rounded-full bg-[#c7f711] hover:bg-[#b0dc0d] text-black font-extrabold text-xs tracking-tight transition-all text-center shrink-0"
               >
                 Book Court Now • ₹{standardRate}/hr
               </a>
@@ -498,38 +514,34 @@ function GalleryCard({
 
   const heightClass =
     item.aspect === "tall"
-      ? "h-[360px] sm:h-[420px]"
+      ? "h-[260px] sm:h-[360px] lg:h-[420px]"
       : item.aspect === "square"
-        ? "h-[240px] sm:h-[280px]"
-        : "h-[220px] sm:h-[260px]";
+        ? "h-[230px] sm:h-[260px] lg:h-[280px]"
+        : "h-[210px] sm:h-[240px] lg:h-[260px]";
 
   const handleCardClick = () => {
     onOpen();
   };
 
   return (
-    <div
+    <article
       id={`card-${item.id}`}
-      role="button"
-      tabIndex={0}
-      aria-label={`Open gallery item: ${item.title}`}
-      onClick={handleCardClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          handleCardClick();
-        }
-      }}
-      className={`group relative w-full ${heightClass} rounded-none overflow-hidden bg-neutral-900 border-2 border-white/80 shadow-md hover:shadow-2xl hover:border-[#00A852] focus:outline-none focus:ring-2 focus:ring-[#c7f711] transition-all duration-300 cursor-pointer`}
+      className={`group relative w-full ${heightClass} rounded-none overflow-hidden bg-neutral-900 border-2 border-white/80 shadow-md hover:shadow-2xl hover:border-[#00A852] transition-all duration-300`}
     >
+      <button
+        type="button"
+        onClick={handleCardClick}
+        aria-label={`Open gallery item: ${item.title}`}
+        className="absolute inset-0 z-[5] w-full h-full cursor-pointer bg-transparent border-0 p-0 focus-visible:outline-none"
+      />
       {/* Video or Image Element */}
       {item.type === "video" && item.videoSrc && !videoFailed ? (
-        <div className="relative w-full h-full overflow-hidden bg-black rounded-none">
+        <div className="relative w-full h-full overflow-hidden bg-black rounded-none pointer-events-none">
           <video
             ref={videoRef}
             src={item.videoSrc}
             poster={item.src}
-            autoPlay
+            autoPlay={isPlaying}
             loop
             muted={isMuted}
             playsInline
@@ -537,10 +549,10 @@ function GalleryCard({
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
           />
           {/* Permanent dark gradient overlay for text readability */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent pointer-events-none" />
         </div>
       ) : (
-        <div className="relative w-full h-full overflow-hidden bg-neutral-800 rounded-none">
+        <div className="relative w-full h-full overflow-hidden bg-neutral-800 rounded-none pointer-events-none">
           <Image
             src={item.src}
             alt={item.title}
@@ -548,18 +560,18 @@ function GalleryCard({
             className="object-cover group-hover:scale-105 transition-transform duration-700"
           />
           {/* Permanent dark gradient overlay for text readability */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent pointer-events-none" />
         </div>
       )}
 
       {/* Top Right Quick Action Buttons */}
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
+      <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex items-center gap-1.5 opacity-95 group-hover:opacity-100 transition-opacity">
         {item.type === "video" && (
           <button
             type="button"
             onClick={onTogglePlay}
             aria-label={isPlaying ? `Pause ${item.title}` : `Play ${item.title}`}
-            className="p-2 rounded-full bg-black/60 hover:bg-black/90 text-white backdrop-blur-md transition-all"
+            className="min-w-[38px] min-h-[38px] p-2 rounded-full bg-black/70 hover:bg-black/95 text-white backdrop-blur-md transition-all flex items-center justify-center"
             title={isPlaying ? "Pause video" : "Play video"}
           >
             {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 text-[#c7f711]" />}
@@ -572,7 +584,7 @@ function GalleryCard({
             onOpen();
           }}
           aria-label={`Expand ${item.title}`}
-          className="p-2 rounded-full bg-black/60 hover:bg-black/90 text-white backdrop-blur-md transition-all"
+          className="min-w-[38px] min-h-[38px] p-2 rounded-full bg-black/70 hover:bg-black/95 text-white backdrop-blur-md transition-all flex items-center justify-center"
           title="Expand View"
         >
           <Maximize2 className="w-3.5 h-3.5" />
@@ -580,16 +592,16 @@ function GalleryCard({
       </div>
 
       {/* Permanent Bottom Content Bar */}
-      <div className="absolute bottom-0 inset-x-0 p-5 sm:p-6 z-10 text-white transform transition-transform pointer-events-none">
-        <h3 className="font-extrabold text-sm sm:text-base leading-snug group-hover:text-[#c7f711] transition-colors drop-shadow-sm">
+      <div className="absolute bottom-0 inset-x-0 p-4 sm:p-5 z-10 text-white pointer-events-none">
+        <h3 className="font-extrabold text-sm sm:text-base text-white leading-snug group-hover:text-[#c7f711] transition-colors drop-shadow-sm">
           {item.title}
         </h3>
         {item.caption && (
-          <p className="text-[11px] text-white/75 mt-1 line-clamp-1 leading-relaxed">
+          <p className="text-[11px] sm:text-xs text-white/85 mt-1 line-clamp-2 leading-snug">
             {item.caption}
           </p>
         )}
       </div>
-    </div>
+    </article>
   );
 }

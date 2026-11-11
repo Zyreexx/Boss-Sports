@@ -466,8 +466,8 @@ export default function StaffPanelPage() {
       {/* Top Header / Staff Bar */}
       <header className="border-b border-white/10 bg-[#0d141f]/90 backdrop-blur sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 min-h-16 py-2.5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full overflow-hidden border border-[#c7f711] shadow-[0_0_15px_rgba(199,247,17,0.3)] bg-white">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 shrink-0 rounded-full overflow-hidden border border-[#c7f711] shadow-[0_0_15px_rgba(199,247,17,0.3)] bg-white">
               <Image
                 src="/images/official-boss-logo.jpg"
                 alt="Boss Pickleball"
@@ -476,22 +476,22 @@ export default function StaffPanelPage() {
                 className="object-cover w-full h-full"
               />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold tracking-tight text-white text-base">BOSS PICKLEBALL</span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <span className="font-extrabold tracking-tight text-white text-sm sm:text-base">BOSS PICKLEBALL</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider bg-[#c7f711] text-black px-2 py-0.5 rounded-full">
                   Staff Desk
                 </span>
               </div>
-              <p className="text-xs text-white/50">Pickleball Court Registrar &amp; Live Schedule Desk</p>
+              <p className="text-xs text-white/50 truncate">Pickleball Court Registrar &amp; Live Schedule Desk</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-start sm:justify-end">
             {currentUser ? (
-              <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1 rounded-full">
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1 rounded-full max-w-full min-h-[38px]">
                 <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${currentUser.role === "OWNER"
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${currentUser.role === "OWNER"
                       ? "bg-purple-500 text-white"
                       : currentUser.role === "EMPLOYEE"
                       ? "bg-emerald-400 text-black"
@@ -500,10 +500,10 @@ export default function StaffPanelPage() {
                 >
                   {currentUser.role === "OWNER" ? "👑 Owner" : currentUser.role === "EMPLOYEE" ? "🛡️ Employee" : "👤 Customer"}
                 </span>
-                <span className="text-xs text-white/90">{currentUser.name}</span>
+                <span className="text-xs text-white/90 truncate max-w-[120px] sm:max-w-[180px]">{currentUser.name}</span>
                 <button
                   onClick={handleLogout}
-                  className="text-[10px] text-white/40 hover:text-white underline ml-1"
+                  className="text-xs text-white/60 hover:text-white underline ml-1 min-h-[32px] px-1 shrink-0"
                 >
                   Sign Out
                 </button>
@@ -511,26 +511,26 @@ export default function StaffPanelPage() {
             ) : (
               <button
                 onClick={() => setShowLoginModal(true)}
-                className="text-xs bg-[#c7f711] text-black font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5"
+                className="text-xs bg-[#c7f711] text-black font-bold px-3.5 py-2 min-h-[40px] rounded-lg flex items-center gap-1.5"
               >
-                <Lock className="w-3.5 h-3.5" />
+                <Lock className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Employee Login</span>
               </button>
             )}
 
             <Link
               href="/"
-              className="text-xs text-white/70 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/30 transition-all"
+              className="text-xs text-white/80 hover:text-white px-3.5 py-2 min-h-[40px] inline-flex items-center rounded-lg border border-white/15 hover:border-white/30 transition-all"
             >
               Customer Website ↗
             </Link>
             {currentUser?.role === "OWNER" && (
               <Link
                 href="/admin"
-                className="text-xs bg-white/10 hover:bg-white/20 text-white font-medium px-3.5 py-1.5 rounded-lg border border-white/20 transition-all flex items-center gap-1.5"
+                className="text-xs bg-white/10 hover:bg-white/20 text-white font-medium px-3.5 py-2 min-h-[40px] rounded-lg border border-white/20 transition-all inline-flex items-center gap-1.5"
               >
                 <span>Owner Admin</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
               </Link>
             )}
           </div>
@@ -540,14 +540,14 @@ export default function StaffPanelPage() {
       {/* Main Container */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         {!authChecked ? (
-          <div className="p-16 text-center text-white/50 text-xs">
+          <div className="p-12 sm:p-16 text-center text-white/50 text-xs">
             <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3 text-[#c7f711]" />
             Verifying staff credentials...
           </div>
         ) : !isStaffAuthorized ? (
-          <div className="max-w-lg mx-auto my-12 p-8 rounded-3xl bg-[#0d141f] border border-white/10 text-center space-y-4">
+          <div className="max-w-lg mx-auto my-8 sm:my-12 p-6 sm:p-8 rounded-3xl bg-[#0d141f] border border-white/10 text-center space-y-4">
             <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-300 flex items-center justify-center mx-auto">
-              <Lock className="w-6 h-6" />
+              <Lock className="w-6 h-6" aria-hidden="true" />
             </div>
             <h2 className="text-xl font-bold text-white">Staff Authorization Required</h2>
             <p className="text-xs text-white/60 leading-relaxed">
@@ -555,19 +555,19 @@ export default function StaffPanelPage() {
                 ? `Signed in as ${currentUser.name} (${currentUser.role}). The Staff Desk is restricted to authorized arena staff and owners.`
                 : "Please sign in with an authorized employee or owner account to access the Staff Registrar Desk."}
             </p>
-            <div className="flex items-center justify-center gap-3 pt-2">
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               {!currentUser && (
                 <button
                   type="button"
                   onClick={() => setShowLoginModal(true)}
-                  className="px-5 py-2.5 rounded-xl bg-[#c7f711] hover:bg-[#b0dc0d] text-black font-extrabold text-xs transition-all"
+                  className="px-5 py-2.5 min-h-[44px] rounded-xl bg-[#c7f711] hover:bg-[#b0dc0d] text-black font-extrabold text-xs transition-all"
                 >
                   Staff Sign In
                 </button>
               )}
               <Link
                 href="/"
-                className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all"
+                className="px-5 py-2.5 min-h-[44px] inline-flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all"
               >
                 Return to Booking Site
               </Link>
@@ -576,7 +576,7 @@ export default function StaffPanelPage() {
         ) : (
           <>
         {backendError && (
-          <div className="mb-4 p-4 rounded-2xl bg-red-500/15 border border-red-500/40 text-xs text-red-200 flex items-center justify-between gap-3">
+          <div className="mb-4 p-4 rounded-2xl bg-red-500/15 border border-red-500/40 text-xs text-red-200 flex flex-wrap items-center justify-between gap-3">
             <span>{backendError}</span>
             <button
               type="button"
@@ -584,7 +584,7 @@ export default function StaffPanelPage() {
                 fetchCourts();
                 fetchStaffUpcomingSchedule();
               }}
-              className="px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 font-semibold text-white shrink-0"
+              className="px-3.5 py-2 min-h-[40px] rounded-lg bg-red-500/20 hover:bg-red-500/30 font-semibold text-white shrink-0"
             >
               Retry Sync
             </button>
@@ -596,15 +596,15 @@ export default function StaffPanelPage() {
             ? "bg-gradient-to-r from-amber-950/80 to-amber-900/60 border-amber-500/50 text-amber-100"
             : "bg-gradient-to-r from-[#0d141f] to-[#121c2c] border-white/10 text-white"
         }`}>
-          <div className="flex items-center gap-3.5">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl border ${
+          <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+            <div className={`w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center text-2xl border ${
               todaySchedule?.isClosed
                 ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
                 : "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
             }`}>
               {todaySchedule?.isClosed ? "🏮" : "🟢"}
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-extrabold text-sm sm:text-base tracking-tight text-white">
                   Today&apos;s Store Status: {todaySchedule?.isClosed ? "CLOSED TODAY" : "OPEN FOR BOOKINGS"}
@@ -627,12 +627,12 @@ export default function StaffPanelPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:self-center">
+          <div className="flex items-center gap-2 w-full sm:w-auto sm:self-center shrink-0">
             {todaySchedule?.isClosed ? (
               <button
                 type="button"
                 onClick={handleQuickReopenToday}
-                className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs tracking-tight shadow-lg transition-all flex items-center gap-2"
+                className="w-full sm:w-auto justify-center min-h-[44px] px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs tracking-tight shadow-lg transition-all flex items-center gap-2"
               >
                 <span>🟢 Reopen Arena for Today</span>
               </button>
@@ -640,7 +640,7 @@ export default function StaffPanelPage() {
               <button
                 type="button"
                 onClick={handleQuickCloseToday}
-                className="px-5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 font-extrabold text-xs tracking-tight transition-all flex items-center gap-2"
+                className="w-full sm:w-auto justify-center min-h-[44px] px-5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 font-extrabold text-xs tracking-tight transition-all flex items-center gap-2"
               >
                 <span>🏮 Close Arena for Today</span>
               </button>
@@ -649,65 +649,75 @@ export default function StaffPanelPage() {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4 mb-6">
-          <div className="flex flex-wrap items-center gap-2 bg-[#0d141f] p-1.5 rounded-2xl border border-white/10">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 border-b border-white/10 pb-4 mb-6">
+          <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-stretch sm:items-center gap-1.5 sm:gap-2 bg-[#0d141f] p-1.5 rounded-2xl border border-white/10 w-full lg:w-auto">
             <button
+              type="button"
+              aria-pressed={activeTab === "pickleball"}
               onClick={() => setActiveTab("pickleball")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs tracking-wide transition-all ${activeTab === "pickleball"
+              className={`flex items-center gap-2 px-4 py-2.5 min-h-[42px] w-full sm:w-auto justify-start sm:justify-center rounded-xl font-semibold text-xs tracking-wide transition-all ${activeTab === "pickleball"
                   ? "bg-[#c7f711] text-black shadow-lg shadow-[#c7f711]/20"
                   : "text-white/70 hover:text-white hover:bg-white/5"
                 }`}
             >
-              <Receipt className="w-4 h-4" />
+              <Receipt className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>Pickleball Quick-Book (&lt;10s)</span>
             </button>
 
             <button
+              type="button"
+              aria-pressed={activeTab === "courts"}
               onClick={() => setActiveTab("courts")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs tracking-wide transition-all ${activeTab === "courts"
+              className={`flex items-center gap-2 px-4 py-2.5 min-h-[42px] w-full sm:w-auto justify-start sm:justify-center rounded-xl font-semibold text-xs tracking-wide transition-all ${activeTab === "courts"
                   ? "bg-[#c7f711] text-black shadow-lg shadow-[#c7f711]/20"
                   : "text-white/70 hover:text-white hover:bg-white/5"
                 }`}
             >
-              <Layers className="w-4 h-4" />
+              <Layers className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>Manage Courts</span>
             </button>
 
             <button
+              type="button"
+              aria-pressed={activeTab === "gallery"}
               onClick={() => setActiveTab("gallery")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs tracking-wide transition-all ${activeTab === "gallery"
+              className={`flex items-center gap-2 px-4 py-2.5 min-h-[42px] w-full sm:w-auto justify-start sm:justify-center rounded-xl font-semibold text-xs tracking-wide transition-all ${activeTab === "gallery"
                   ? "bg-[#c7f711] text-black shadow-lg shadow-[#c7f711]/20"
                   : "text-white/70 hover:text-white hover:bg-white/5"
                 }`}
             >
-              <FileText className="w-4 h-4" />
+              <FileText className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>Action Gallery</span>
             </button>
 
             <button
+              type="button"
+              aria-pressed={activeTab === "schedule"}
               onClick={() => setActiveTab("schedule")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs tracking-wide transition-all ${activeTab === "schedule"
+              className={`flex items-center gap-2 px-4 py-2.5 min-h-[42px] w-full sm:w-auto justify-start sm:justify-center rounded-xl font-semibold text-xs tracking-wide transition-all ${activeTab === "schedule"
                   ? "bg-[#c7f711] text-black shadow-lg shadow-[#c7f711]/20"
                   : "text-white/70 hover:text-white hover:bg-white/5"
                 }`}
             >
-              <Calendar className="w-4 h-4" />
+              <Calendar className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>Arena Hours &amp; Holiday Closures</span>
             </button>
 
             <button
+              type="button"
+              aria-pressed={activeTab === "lookup"}
               onClick={() => setActiveTab("lookup")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs tracking-wide transition-all ${activeTab === "lookup"
+              className={`flex items-center gap-2 px-4 py-2.5 min-h-[42px] w-full sm:w-auto justify-start sm:justify-center rounded-xl font-semibold text-xs tracking-wide transition-all ${activeTab === "lookup"
                   ? "bg-[#c7f711] text-black shadow-lg shadow-[#c7f711]/20"
                   : "text-white/70 hover:text-white hover:bg-white/5"
                 }`}
             >
-              <Search className="w-4 h-4" />
+              <Search className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>Phone Lookup &amp; Cancel</span>
             </button>
           </div>
 
-          <div className="text-xs text-white/50 flex items-center gap-2">
+          <div className="text-xs text-white/50 flex items-center gap-2 shrink-0">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span>Boss Pickleball Desk</span>
           </div>
@@ -719,28 +729,29 @@ export default function StaffPanelPage() {
         {activeTab === "pickleball" && (
           <div className="space-y-6">
             {/* Default Live Upcoming Court Schedule Board for Staff Desk */}
-            <div className="bg-[#0d141f] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-4">
+            <div className="bg-[#0d141f] border border-white/10 rounded-3xl p-5 sm:p-8 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
                 <div>
                   <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-[#c7f711]" />
+                    <Calendar className="w-5 h-5 text-[#c7f711] shrink-0" aria-hidden="true" />
                     <span>Live Upcoming Court Schedule &amp; Player Queue</span>
                   </h2>
                   <p className="text-xs text-white/60 mt-0.5">
                     Real-time feed of confirmed reservations across Court 1, Court 2, and Court 3.
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs bg-[#c7f711]/20 text-[#c7f711] border border-[#c7f711]/30 px-3 py-1 rounded-full font-bold">
                     {upcomingBookings.length} Active Games Scheduled
                   </span>
                   <button
                     type="button"
                     onClick={fetchStaffUpcomingSchedule}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white"
+                    className="p-2 min-w-[40px] min-h-[40px] inline-flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white"
                     title="Refresh Schedule"
+                    aria-label="Refresh Schedule"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${loadingSchedule ? "animate-spin" : ""}`} />
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingSchedule ? "animate-spin" : ""}`} aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -779,27 +790,27 @@ export default function StaffPanelPage() {
                         key={b.id}
                         className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-white/20 transition-all space-y-3"
                       >
-                        <div className="flex items-start justify-between">
-                          <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
                             <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[#c7f711]/20 text-[#c7f711] border border-[#c7f711]/30">
                               {b.courtName || "Court 1"}
                             </span>
-                            <div className="text-white font-bold text-xs mt-1.5">{b.customerName}</div>
+                            <div className="text-white font-bold text-xs mt-1.5 truncate">{b.customerName}</div>
                             <div className="text-[11px] text-white/60 font-mono">{b.customerPhone}</div>
                           </div>
-                          <div className="text-right">
+                          <div className="text-right shrink-0">
                             <div className="text-sm font-extrabold text-[#c7f711]">₹{b.totalPrice || 400}</div>
                             <span className="text-[9px] text-white/40 font-mono">#{b.id.slice(-6).toUpperCase()}</span>
                           </div>
                         </div>
 
-                        <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px]">
-                          <div className="text-white/70 flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-[#c7f711]" />
-                            <span>{dateStr} • {timeStr}</span>
+                        <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                          <div className="text-white/70 flex items-center gap-1 min-w-0">
+                            <Clock className="w-3 h-3 text-[#c7f711] shrink-0" aria-hidden="true" />
+                            <span className="truncate">{dateStr} • {timeStr}</span>
                           </div>
                           <span
-                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase ${b.paymentStatus === "PAID_ONLINE" || b.paymentStatus === "CASH_COUNTER"
+                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase shrink-0 ${b.paymentStatus === "PAID_ONLINE" || b.paymentStatus === "CASH_COUNTER"
                                 ? "bg-emerald-500/20 text-emerald-400"
                                 : b.paymentStatus === "UPI_COUNTER"
                                   ? "bg-cyan-500/20 text-cyan-400"
@@ -816,7 +827,7 @@ export default function StaffPanelPage() {
                               type="button"
                               disabled={paymentUpdatingId === b.id}
                               onClick={() => handleRecordPayment(b.id, "CASH_COUNTER")}
-                              className="flex-1 text-[10px] font-bold py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition-all"
+                              className="flex-1 min-h-[40px] text-[11px] font-bold py-2 px-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition-all"
                             >
                               Collect Cash
                             </button>
@@ -824,7 +835,7 @@ export default function StaffPanelPage() {
                               type="button"
                               disabled={paymentUpdatingId === b.id}
                               onClick={() => handleRecordPayment(b.id, "UPI_COUNTER")}
-                              className="flex-1 text-[10px] font-bold py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 transition-all"
+                              className="flex-1 min-h-[40px] text-[11px] font-bold py-2 px-2 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 transition-all"
                             >
                               Collect UPI
                             </button>
@@ -843,20 +854,20 @@ export default function StaffPanelPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* Quick-Book Form */}
-              <div className="lg:col-span-8 bg-[#0d141f] border border-white/10 rounded-3xl p-6 sm:p-8">
-                <div className="flex items-center justify-between mb-6">
+              <div className="lg:col-span-8 bg-[#0d141f] border border-white/10 rounded-3xl p-5 sm:p-8">
+                <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
                   <div>
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-white flex flex-wrap items-center gap-2">
                       <span>Counter / Phone Booking</span>
                       <span className="text-xs bg-[#c7f711]/20 text-[#c7f711] border border-[#c7f711]/40 px-2 py-0.5 rounded-full font-mono">
                         Target &lt;10s
                       </span>
                     </h2>
-                    <p className="text-xs text-white/60">
+                    <p className="text-xs text-white/60 mt-1">
                       Counter &amp; phone slot assignment with server-side overlap validation.
                     </p>
                   </div>
-                  <div className="text-right">
+                  <div className="sm:text-right shrink-0">
                     <span className="text-xs text-white/50 block">Court Base Rate</span>
                     <span className="text-lg font-bold text-[#c7f711]">₹{selectedCourtRate} / hr</span>
                   </div>
@@ -870,9 +881,9 @@ export default function StaffPanelPage() {
                       }`}
                   >
                     {bookMessage.type === "success" ? (
-                      <CheckCircle className="w-5 h-5 flex-shrink-0" />
+                      <CheckCircle className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
                     ) : (
-                      <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                      <AlertCircle className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
                     )}
                     <p className="text-sm font-medium">{bookMessage.text}</p>
                   </div>
@@ -880,10 +891,10 @@ export default function StaffPanelPage() {
 
                 {/* Holiday Notice or Dynamic Hours Badge */}
                 {selectedDateIsClosed ? (
-                  <div className="mb-6 p-4 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">🏮</span>
-                      <div>
+                  <div className="mb-6 p-4 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-2xl shrink-0">🏮</span>
+                      <div className="min-w-0">
                         <div className="font-bold text-xs uppercase tracking-wider text-amber-100">
                           Holiday Alert: Arena Closed ({selectedDateClosureReason || "Holiday / Maintenance"})
                         </div>
@@ -895,15 +906,15 @@ export default function StaffPanelPage() {
                     <button
                       type="button"
                       onClick={() => setActiveTab("schedule")}
-                      className="text-xs bg-amber-400 hover:bg-amber-300 text-black font-bold px-3 py-1.5 rounded-xl transition-all"
+                      className="text-xs bg-amber-400 hover:bg-amber-300 text-black font-bold px-3.5 py-2 min-h-[40px] rounded-xl transition-all shrink-0"
                     >
                       Manage Hours / Re-open
                     </button>
                   </div>
                 ) : (
-                  <div className="mb-6 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <div className="mb-6 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
                       <span>Operating Hours for {selectedDate}: <strong>{selectedDateOpenTime} – {selectedDateCloseTime}</strong></span>
                     </div>
                     <button
@@ -912,7 +923,7 @@ export default function StaffPanelPage() {
                         setScheduleTargetDate(selectedDate);
                         setActiveTab("schedule");
                       }}
-                      className="text-[11px] text-white/50 hover:text-white underline"
+                      className="text-xs text-white/70 hover:text-white underline min-h-[34px] px-1 shrink-0"
                     >
                       Change Hours
                     </button>
@@ -922,16 +933,17 @@ export default function StaffPanelPage() {
                 <form onSubmit={handleQuickBook} className="space-y-6">
                   {/* 1. Court Selection */}
                   <div>
-                    <label className="text-xs font-semibold text-white/80 block mb-2 uppercase tracking-wider">
+                    <span className="text-xs font-semibold text-white/80 block mb-2 uppercase tracking-wider">
                       1. Select Court
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    </span>
+                    <div className="grid grid-cols-1 min-[360px]:grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
                       {courts.map((court) => (
                         <button
                           key={court.id}
                           type="button"
+                          aria-pressed={selectedCourt === court.id}
                           onClick={() => setSelectedCourt(court.id)}
-                          className={`p-3 rounded-2xl border text-left transition-all ${selectedCourt === court.id
+                          className={`p-3 min-h-[44px] rounded-2xl border text-left transition-all ${selectedCourt === court.id
                               ? "bg-[#c7f711] text-black border-[#c7f711] shadow-lg shadow-[#c7f711]/20"
                               : "bg-white/5 border-white/10 text-white/80 hover:bg-white/10"
                             }`}
@@ -948,25 +960,27 @@ export default function StaffPanelPage() {
                   {/* 2. Date & Time Selection */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                      <label className="text-xs font-semibold text-white/80 block mb-2 uppercase tracking-wider">
+                      <label htmlFor="staff-book-date" className="text-xs font-semibold text-white/80 block mb-2 uppercase tracking-wider">
                         2. Date
                       </label>
                       <input
+                        id="staff-book-date"
                         type="date"
                         value={selectedDate}
                         onChange={(e) => setSelectedDate(e.target.value)}
-                        className="w-full bg-white/5 border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-[#c7f711]"
+                        className="w-full min-w-0 min-h-[44px] bg-white/5 border border-white/15 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-white focus:outline-none focus:border-[#c7f711]"
                       />
                     </div>
 
                     <div>
-                      <label className="text-xs font-semibold text-white/80 block mb-2 uppercase tracking-wider">
+                      <label htmlFor="staff-book-slot" className="text-xs font-semibold text-white/80 block mb-2 uppercase tracking-wider">
                         3. Start Slot
                       </label>
                       <select
+                        id="staff-book-slot"
                         value={selectedTimeSlot}
                         onChange={(e) => setSelectedTimeSlot(e.target.value)}
-                        className="w-full bg-[#161f2e] border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-[#c7f711]"
+                        className="w-full min-w-0 min-h-[44px] bg-[#161f2e] border border-white/15 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-white focus:outline-none focus:border-[#c7f711]"
                       >
                         {[
                           "06:00", "07:00", "08:00", "09:00", "10:00", "11:00",
@@ -981,13 +995,14 @@ export default function StaffPanelPage() {
                     </div>
 
                     <div>
-                      <label className="text-xs font-semibold text-white/80 block mb-2 uppercase tracking-wider">
+                      <label htmlFor="staff-book-duration" className="text-xs font-semibold text-white/80 block mb-2 uppercase tracking-wider">
                         4. Duration
                       </label>
                       <select
+                        id="staff-book-duration"
                         value={durationHours}
                         onChange={(e) => setDurationHours(Number(e.target.value))}
-                        className="w-full bg-[#161f2e] border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-[#c7f711]"
+                        className="w-full min-w-0 min-h-[44px] bg-[#161f2e] border border-white/15 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-white focus:outline-none focus:border-[#c7f711]"
                       >
                         <option value={1}>1 Hour (Standard)</option>
                         <option value={2}>2 Hours</option>
@@ -999,35 +1014,37 @@ export default function StaffPanelPage() {
                   {/* 3. Customer Info */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-xs font-semibold text-white/80 block mb-2 uppercase tracking-wider">
+                      <label htmlFor="staff-customer-name" className="text-xs font-semibold text-white/80 block mb-2 uppercase tracking-wider">
                         Customer Name *
                       </label>
                       <div className="relative">
-                        <User className="w-4 h-4 text-white/40 absolute left-3.5 top-3" />
+                        <User className="w-4 h-4 text-white/40 absolute left-3.5 top-3.5 pointer-events-none" aria-hidden="true" />
                         <input
+                          id="staff-customer-name"
                           type="text"
                           required
                           placeholder="e.g. Rahul Patel"
                           value={customerName}
                           onChange={(e) => setCustomerName(e.target.value)}
-                          className="w-full bg-white/5 border border-white/15 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-[#c7f711]"
+                          className="w-full min-w-0 min-h-[44px] bg-white/5 border border-white/15 rounded-xl pl-10 pr-3.5 py-2.5 text-base sm:text-sm text-white placeholder-white/30 focus:outline-none focus:border-[#c7f711]"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="text-xs font-semibold text-white/80 block mb-2 uppercase tracking-wider">
+                      <label htmlFor="staff-customer-phone" className="text-xs font-semibold text-white/80 block mb-2 uppercase tracking-wider">
                         Phone Number *
                       </label>
                       <div className="relative">
-                        <Phone className="w-4 h-4 text-white/40 absolute left-3.5 top-3" />
+                        <Phone className="w-4 h-4 text-white/40 absolute left-3.5 top-3.5 pointer-events-none" aria-hidden="true" />
                         <input
+                          id="staff-customer-phone"
                           type="tel"
                           required
                           placeholder="10-digit mobile number"
                           value={customerPhone}
                           onChange={(e) => setCustomerPhone(e.target.value)}
-                          className="w-full bg-white/5 border border-white/15 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-[#c7f711]"
+                          className="w-full min-w-0 min-h-[44px] bg-white/5 border border-white/15 rounded-xl pl-10 pr-3.5 py-2.5 text-base sm:text-sm text-white placeholder-white/30 focus:outline-none focus:border-[#c7f711]"
                         />
                       </div>
                     </div>
@@ -1036,26 +1053,28 @@ export default function StaffPanelPage() {
                   {/* 4. Booking Source & Payment Option */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-xs font-semibold text-white/80 block mb-2 uppercase tracking-wider">
+                      <span className="text-xs font-semibold text-white/80 block mb-2 uppercase tracking-wider">
                         Source
-                      </label>
+                      </span>
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
+                          aria-pressed={bookingSource === "WALKIN"}
                           onClick={() => setBookingSource("WALKIN")}
-                          className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all ${bookingSource === "WALKIN"
+                          className={`py-2.5 px-3 min-h-[44px] rounded-xl border text-xs font-bold transition-all ${bookingSource === "WALKIN"
                               ? "bg-white text-black border-white"
-                              : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
+                              : "bg-white/5 border-white/10 text-white/75 hover:bg-white/10"
                             }`}
                         >
                           Counter Walk-in
                         </button>
                         <button
                           type="button"
+                          aria-pressed={bookingSource === "PHONE"}
                           onClick={() => setBookingSource("PHONE")}
-                          className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all ${bookingSource === "PHONE"
+                          className={`py-2.5 px-3 min-h-[44px] rounded-xl border text-xs font-bold transition-all ${bookingSource === "PHONE"
                               ? "bg-white text-black border-white"
-                              : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
+                              : "bg-white/5 border-white/10 text-white/75 hover:bg-white/10"
                             }`}
                         >
                           Phone Booking
@@ -1064,36 +1083,39 @@ export default function StaffPanelPage() {
                     </div>
 
                     <div>
-                      <label className="text-xs font-semibold text-white/80 block mb-2 uppercase tracking-wider">
+                      <span className="text-xs font-semibold text-white/80 block mb-2 uppercase tracking-wider">
                         Payment Status
-                      </label>
-                      <div className="grid grid-cols-3 gap-2">
+                      </span>
+                      <div className="grid grid-cols-1 min-[380px]:grid-cols-3 gap-2">
                         <button
                           type="button"
+                          aria-pressed={paymentStatus === "CASH_COUNTER"}
                           onClick={() => setPaymentStatus("CASH_COUNTER")}
-                          className={`py-2 px-2 rounded-xl border text-[11px] font-bold transition-all text-center ${paymentStatus === "CASH_COUNTER"
+                          className={`py-2.5 px-2.5 min-h-[42px] rounded-xl border text-xs sm:text-[11px] font-bold transition-all text-center ${paymentStatus === "CASH_COUNTER"
                               ? "bg-emerald-400 text-black border-emerald-400"
-                              : "bg-white/5 border-white/10 text-white/70"
+                              : "bg-white/5 border-white/10 text-white/75"
                             }`}
                         >
                           Cash Counter
                         </button>
                         <button
                           type="button"
+                          aria-pressed={paymentStatus === "UPI_COUNTER"}
                           onClick={() => setPaymentStatus("UPI_COUNTER")}
-                          className={`py-2 px-2 rounded-xl border text-[11px] font-bold transition-all text-center ${paymentStatus === "UPI_COUNTER"
+                          className={`py-2.5 px-2.5 min-h-[42px] rounded-xl border text-xs sm:text-[11px] font-bold transition-all text-center ${paymentStatus === "UPI_COUNTER"
                               ? "bg-emerald-400 text-black border-emerald-400"
-                              : "bg-white/5 border-white/10 text-white/70"
+                              : "bg-white/5 border-white/10 text-white/75"
                             }`}
                         >
                           UPI QR
                         </button>
                         <button
                           type="button"
+                          aria-pressed={paymentStatus === "PAY_AT_VENUE"}
                           onClick={() => setPaymentStatus("PAY_AT_VENUE")}
-                          className={`py-2 px-2 rounded-xl border text-[11px] font-bold transition-all text-center ${paymentStatus === "PAY_AT_VENUE"
+                          className={`py-2.5 px-2.5 min-h-[42px] rounded-xl border text-xs sm:text-[11px] font-bold transition-all text-center ${paymentStatus === "PAY_AT_VENUE"
                               ? "bg-amber-400 text-black border-amber-400"
-                              : "bg-white/5 border-white/10 text-white/70"
+                              : "bg-white/5 border-white/10 text-white/75"
                             }`}
                         >
                           Pay at Venue
@@ -1108,7 +1130,7 @@ export default function StaffPanelPage() {
                       <span className="font-semibold text-white block">Venue Equipment &amp; Surge Check</span>
                       Final booking total (including any active peak surge) is calculated server-side. Confirm paddle/ball availability at reception.
                     </div>
-                    <span className="text-xs font-bold text-[#c7f711] bg-[#c7f711]/10 border border-[#c7f711]/30 px-3 py-1.5 rounded-full">
+                    <span className="text-xs font-bold text-[#c7f711] bg-[#c7f711]/10 border border-[#c7f711]/30 px-3 py-1.5 rounded-full shrink-0">
                       Desk Assisted
                     </span>
                   </div>
@@ -1117,16 +1139,16 @@ export default function StaffPanelPage() {
                   <button
                     type="submit"
                     disabled={bookLoading || selectedDateIsClosed}
-                    className="w-full bg-[#c7f711] hover:bg-[#b0dc0d] text-black font-extrabold text-sm py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-xl shadow-[#c7f711]/20 disabled:opacity-50"
+                    className="w-full min-h-[48px] px-4 bg-[#c7f711] hover:bg-[#b0dc0d] text-black font-extrabold text-sm py-3.5 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-xl shadow-[#c7f711]/20 disabled:opacity-50 text-center"
                   >
                     {bookLoading ? (
                       <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <RefreshCw className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
                         <span>Verifying Slot Collision &amp; Booking...</span>
                       </>
                     ) : (
                       <>
-                        <CheckCircle className="w-5 h-5" />
+                        <CheckCircle className="w-5 h-5 shrink-0" aria-hidden="true" />
                         <span>Confirm &amp; Issue Receipt (Base Est. ₹{durationHours * selectedCourtRate})</span>
                       </>
                     )}
@@ -1136,9 +1158,9 @@ export default function StaffPanelPage() {
 
               {/* Quick Summary & Recent Court Activity */}
               <div className="lg:col-span-4 space-y-6">
-                <div className="bg-[#0d141f] border border-white/10 rounded-3xl p-6">
+                <div className="bg-[#0d141f] border border-white/10 rounded-3xl p-5 sm:p-6">
                   <h3 className="font-bold text-sm text-white mb-3 flex items-center gap-2">
-                    <Receipt className="w-4 h-4 text-[#c7f711]" />
+                    <Receipt className="w-4 h-4 text-[#c7f711] shrink-0" aria-hidden="true" />
                     <span>Registrar Operating Rules</span>
                   </h3>
                   <ul className="text-xs text-white/70 space-y-2.5">
@@ -1161,8 +1183,8 @@ export default function StaffPanelPage() {
                   </ul>
                 </div>
 
-                <div className="bg-gradient-to-br from-[#0d141f] to-[#122030] border border-white/10 rounded-3xl p-6">
-                  <div className="flex items-center justify-between mb-4">
+                <div className="bg-gradient-to-br from-[#0d141f] to-[#122030] border border-white/10 rounded-3xl p-5 sm:p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                     <h4 className="font-bold text-sm text-white">Court Status Today</h4>
                     <span className="text-[10px] text-white/50">{selectedDate}</span>
                   </div>
@@ -1170,13 +1192,13 @@ export default function StaffPanelPage() {
                     {courts.map((court) => (
                       <div
                         key={court.id}
-                        className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between"
+                        className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-2"
                       >
-                        <div>
-                          <div className="font-semibold text-xs text-white">{court.name}</div>
+                        <div className="min-w-0">
+                          <div className="font-semibold text-xs text-white truncate">{court.name}</div>
                           <div className="text-[10px] text-white/50">Pickleball Arena</div>
                         </div>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
                           Operational
                         </span>
                       </div>
@@ -1192,7 +1214,7 @@ export default function StaffPanelPage() {
         {/* TAB: COURT MANAGEMENT (STAFF DESK ACCESS) */}
         {/* ========================================================================= */}
         {activeTab === "courts" && (
-          <div className="bg-[#0d141f] border border-white/10 rounded-3xl p-6 sm:p-8">
+          <div className="bg-[#0d141f] border border-white/10 rounded-3xl p-4 sm:p-8">
             <CourtManager userRole="STAFF" onCourtChanged={fetchCourts} />
           </div>
         )}
@@ -1201,7 +1223,7 @@ export default function StaffPanelPage() {
         {/* TAB: GALLERY PUBLISHER (STAFF DESK ACCESS) */}
         {/* ========================================================================= */}
         {activeTab === "gallery" && (
-          <div className="bg-[#0d141f] border border-white/10 rounded-3xl p-6 sm:p-8">
+          <div className="bg-[#0d141f] border border-white/10 rounded-3xl p-4 sm:p-8">
             <GalleryManager userRole="STAFF" />
           </div>
         )}
@@ -1210,16 +1232,16 @@ export default function StaffPanelPage() {
         {/* TAB: ARENA OPERATING HOURS & HOLIDAY CLOSURES (STAFF DESK ACCESS) */}
         {/* ========================================================================= */}
         {activeTab === "schedule" && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            <div className="lg:col-span-7 bg-[#0d141f] border border-white/10 rounded-3xl p-6 sm:p-8">
-              <div className="flex items-center justify-between mb-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
+            <div className="lg:col-span-7 bg-[#0d141f] border border-white/10 rounded-3xl p-5 sm:p-8">
+              <div className="flex flex-wrap items-start justify-between gap-2 mb-4">
                 <div>
                   <h2 className="text-xl font-bold text-white">Arena Operating Hours &amp; Holiday Closures</h2>
                   <p className="text-xs text-white/60 mt-1">
                     Mark festival holidays (e.g. Diwali Holiday) or configure custom arena operating hours.
                   </p>
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-full">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-full shrink-0">
                   Desk Control
                 </span>
               </div>
@@ -1232,23 +1254,25 @@ export default function StaffPanelPage() {
 
               <form onSubmit={handleSaveStaffSchedule} className="space-y-6">
                 <div>
-                  <label className="text-xs font-semibold text-white/80 block mb-2">
+                  <label htmlFor="staff-schedule-date" className="text-xs font-semibold text-white/80 block mb-2">
                     Target Date for Special Schedule / Holiday
                   </label>
                   <input
+                    id="staff-schedule-date"
                     type="date"
                     required
                     value={scheduleTargetDate}
                     onChange={(e) => setScheduleTargetDate(e.target.value)}
-                    className="w-full bg-[#161f2e] border border-white/15 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#c7f711]"
+                    className="w-full min-w-0 min-h-[44px] bg-[#161f2e] border border-white/15 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:outline-none focus:border-[#c7f711]"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     type="button"
+                    aria-pressed={!scheduleIsClosed}
                     onClick={() => setScheduleIsClosed(false)}
-                    className={`p-4 rounded-2xl border text-left transition-all ${!scheduleIsClosed
+                    className={`p-4 min-h-[44px] rounded-2xl border text-left transition-all ${!scheduleIsClosed
                         ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300 shadow-md"
                         : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
                       }`}
@@ -1259,8 +1283,9 @@ export default function StaffPanelPage() {
 
                   <button
                     type="button"
+                    aria-pressed={scheduleIsClosed}
                     onClick={() => setScheduleIsClosed(true)}
-                    className={`p-4 rounded-2xl border text-left transition-all ${scheduleIsClosed
+                    className={`p-4 min-h-[44px] rounded-2xl border text-left transition-all ${scheduleIsClosed
                         ? "bg-amber-500/20 border-amber-500/40 text-amber-300 shadow-md"
                         : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
                       }`}
@@ -1272,16 +1297,17 @@ export default function StaffPanelPage() {
 
                 {scheduleIsClosed ? (
                   <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3">
-                    <label className="text-xs font-semibold text-amber-200 block">
+                    <label htmlFor="staff-closure-reason" className="text-xs font-semibold text-amber-200 block">
                       Closure / Holiday Reason (Shown to Customers) *
                     </label>
                     <input
+                      id="staff-closure-reason"
                       type="text"
                       required
                       placeholder="e.g. Diwali Festive Holiday, Monsoon Court Resurfacing"
                       value={scheduleClosureReason}
                       onChange={(e) => setScheduleClosureReason(e.target.value)}
-                      className="w-full bg-[#161f2e] border border-amber-500/40 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-amber-400"
+                      className="w-full min-w-0 min-h-[44px] bg-[#161f2e] border border-amber-500/40 rounded-xl px-4 py-3 text-base sm:text-sm text-white placeholder-white/30 focus:outline-none focus:border-amber-400"
                     />
                     <div className="flex flex-wrap gap-2 pt-1">
                       {["Diwali Festive Holiday", "Monsoon Maintenance", "Special Tournament", "New Year Eve"].map((preset) => (
@@ -1289,7 +1315,7 @@ export default function StaffPanelPage() {
                           key={preset}
                           type="button"
                           onClick={() => setScheduleClosureReason(preset)}
-                          className="text-[10px] font-semibold bg-white/10 hover:bg-white/20 text-white px-2.5 py-1 rounded-full border border-white/10"
+                          className="text-[11px] font-semibold bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 min-h-[34px] rounded-full border border-white/10"
                         >
                           + {preset}
                         </button>
@@ -1298,42 +1324,44 @@ export default function StaffPanelPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="text-xs font-semibold text-white/80 block mb-2">
+                        <label htmlFor="staff-schedule-open" className="text-xs font-semibold text-white/80 block mb-2">
                           Arena Opening Time
                         </label>
                         <input
+                          id="staff-schedule-open"
                           type="time"
                           value={scheduleOpenTime}
                           onChange={(e) => setScheduleOpenTime(e.target.value)}
-                          className="w-full bg-[#161f2e] border border-white/15 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#c7f711]"
+                          className="w-full min-w-0 min-h-[44px] bg-[#161f2e] border border-white/15 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:outline-none focus:border-[#c7f711]"
                         />
                       </div>
 
                       <div>
-                        <label className="text-xs font-semibold text-white/80 block mb-2">
+                        <label htmlFor="staff-schedule-close" className="text-xs font-semibold text-white/80 block mb-2">
                           Arena Closing Time
                         </label>
                         <input
+                          id="staff-schedule-close"
                           type="time"
                           value={scheduleCloseTime}
                           onChange={(e) => setScheduleCloseTime(e.target.value)}
-                          className="w-full bg-[#161f2e] border border-white/15 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#c7f711]"
+                          className="w-full min-w-0 min-h-[44px] bg-[#161f2e] border border-white/15 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:outline-none focus:border-[#c7f711]"
                         />
                       </div>
                     </div>
 
                     <div>
                       <span className="text-[11px] text-white/50 block mb-2">Presets:</span>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <button
                           type="button"
                           onClick={() => {
                             setScheduleOpenTime("06:00");
                             setScheduleCloseTime("23:00");
                           }}
-                          className="p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-center text-xs text-white"
+                          className="p-2.5 min-h-[44px] rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-center text-xs text-white"
                         >
                           <span className="font-semibold block">Regular</span>
                           <span className="text-[10px] text-white/50">6:00 AM – 11:00 PM</span>
@@ -1345,7 +1373,7 @@ export default function StaffPanelPage() {
                             setScheduleOpenTime("17:00");
                             setScheduleCloseTime("05:00");
                           }}
-                          className="p-2.5 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-center text-xs text-purple-300"
+                          className="p-2.5 min-h-[44px] rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-center text-xs text-purple-300"
                         >
                           <span className="font-semibold block">5 PM – 5 AM</span>
                           <span className="text-[10px] opacity-75">Overnight next morning</span>
@@ -1357,7 +1385,7 @@ export default function StaffPanelPage() {
                             setScheduleOpenTime("18:00");
                             setScheduleCloseTime("10:00");
                           }}
-                          className="p-2.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-center text-xs text-cyan-300"
+                          className="p-2.5 min-h-[44px] rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-center text-xs text-cyan-300"
                         >
                           <span className="font-semibold block">6 PM – 10 AM</span>
                           <span className="text-[10px] opacity-75">Night Owl to morning</span>
@@ -1370,15 +1398,15 @@ export default function StaffPanelPage() {
                 <button
                   type="submit"
                   disabled={scheduleLoading}
-                  className="w-full bg-[#c7f711] hover:bg-[#b0dc0d] text-black font-extrabold text-sm py-3.5 rounded-2xl transition-all shadow-lg shadow-[#c7f711]/20 disabled:opacity-50"
+                  className="w-full min-h-[48px] bg-[#c7f711] hover:bg-[#b0dc0d] text-black font-extrabold text-sm py-3.5 rounded-2xl transition-all shadow-lg shadow-[#c7f711]/20 disabled:opacity-50"
                 >
                   {scheduleLoading ? "Saving Schedule..." : "Save Arena Schedule for Selected Date"}
                 </button>
               </form>
             </div>
 
-            <div className="lg:col-span-5 bg-[#0d141f] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-4">
-              <h3 className="text-base font-bold text-white flex items-center justify-between">
+            <div className="lg:col-span-5 bg-[#0d141f] border border-white/10 rounded-3xl p-5 sm:p-8 space-y-4">
+              <h3 className="text-base font-bold text-white flex flex-wrap items-center justify-between gap-2">
                 <span>Configured Schedules &amp; Closures</span>
                 <span className="text-xs text-white/50 font-normal">{allSchedules.length} active</span>
               </h3>
@@ -1395,7 +1423,7 @@ export default function StaffPanelPage() {
                         : "bg-white/5 border-white/10"
                       }`}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="font-bold text-xs font-mono text-white">
                         {item.date === "DEFAULT" ? "DEFAULT (Daily)" : item.date}
                       </span>
@@ -1425,125 +1453,209 @@ export default function StaffPanelPage() {
         {/* TAB 2: PHONE LOOKUP & CANCELLATION ENGINE */}
         {/* ========================================================================= */}
         {activeTab === "lookup" && (
-          <div className="bg-[#0d141f] border border-white/10 rounded-3xl p-6 sm:p-8">
+          <div className="bg-[#0d141f] border border-white/10 rounded-3xl p-5 sm:p-8">
             <div className="max-w-2xl mb-8">
               <h2 className="text-xl font-bold text-white mb-2">Customer Booking Lookup &amp; Management</h2>
               <p className="text-xs text-white/60">
                 Search all past and upcoming Pickleball reservations by customer mobile number. Manage cancellations with audit notes.
               </p>
 
-              <form onSubmit={handleLookup} className="mt-4 flex gap-3">
-                <div className="relative flex-1">
-                  <Phone className="w-4 h-4 text-white/40 absolute left-3.5 top-3.5" />
+              <form onSubmit={handleLookup} className="mt-4 flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1 min-w-0">
+                  <label htmlFor="staff-lookup-phone" className="sr-only">
+                    Customer 10-digit phone number
+                  </label>
+                  <Phone className="w-4 h-4 text-white/40 absolute left-3.5 top-3.5 pointer-events-none" aria-hidden="true" />
                   <input
+                    id="staff-lookup-phone"
                     type="tel"
                     required
                     placeholder="Enter customer 10-digit phone number..."
                     value={searchPhone}
                     onChange={(e) => setSearchPhone(e.target.value)}
-                    className="w-full bg-white/5 border border-white/15 rounded-2xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-[#c7f711]"
+                    className="w-full min-w-0 min-h-[44px] bg-white/5 border border-white/15 rounded-2xl pl-10 pr-4 py-3 text-base sm:text-sm text-white placeholder-white/30 focus:outline-none focus:border-[#c7f711]"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={lookupLoading}
-                  className="px-6 bg-[#c7f711] hover:bg-[#b0dc0d] text-black font-bold text-xs rounded-2xl transition-all flex items-center gap-2"
+                  className="px-6 py-3 min-h-[44px] w-full sm:w-auto justify-center bg-[#c7f711] hover:bg-[#b0dc0d] text-black font-bold text-xs rounded-2xl transition-all flex items-center gap-2 shrink-0"
                 >
-                  {lookupLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  {lookupLoading ? <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Search className="w-4 h-4" aria-hidden="true" />}
                   <span>Search Bookings</span>
                 </button>
               </form>
             </div>
 
-            {/* Results Table */}
+            {/* Results: Mobile Cards + Tablet/Desktop Table */}
             {lookupResults.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-white/10 text-white/50 uppercase tracking-wider">
-                      <th className="py-3 px-4">Booking Ref</th>
-                      <th className="py-3 px-4">Court</th>
-                      <th className="py-3 px-4">Slot Time</th>
-                      <th className="py-3 px-4">Amount</th>
-                      <th className="py-3 px-4">Payment</th>
-                      <th className="py-3 px-4">Status</th>
-                      <th className="py-3 px-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {lookupResults.map((b) => (
-                      <tr key={b.id} className="hover:bg-white/5 transition-colors">
-                        <td className="py-3.5 px-4 font-mono font-bold text-white">
-                          #{b.id.slice(-6).toUpperCase()}
-                        </td>
-                        <td className="py-3.5 px-4 text-white/90 font-medium">{b.courtName}</td>
-                        <td className="py-3.5 px-4 text-white/70">
-                          {new Date(b.startTime).toLocaleString("en-IN", {
-                            timeZone: "Asia/Kolkata",
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true,
-                          })} IST
-                        </td>
-                        <td className="py-3.5 px-4 font-bold text-[#c7f711]">₹{b.totalPrice}</td>
-                        <td className="py-3.5 px-4">
-                          <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-white/10 text-white/80">
-                            {b.paymentStatus.replace(/_/g, " ")}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <span
-                            className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${b.status === "CONFIRMED"
-                                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                                : b.status === "CANCELLED"
-                                  ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                                  : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                              }`}
-                          >
-                            {b.status}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
-                          {b.status === "CONFIRMED" && (b.paymentStatus === "PAY_AT_VENUE" || b.paymentStatus === "PENDING") && (
-                            <>
-                              <button
-                                type="button"
-                                disabled={paymentUpdatingId === b.id}
-                                onClick={() => handleRecordPayment(b.id, "CASH_COUNTER")}
-                                className="text-[11px] bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 px-2.5 py-1.5 rounded-xl font-medium transition-all"
-                              >
-                                Collect Cash
-                              </button>
-                              <button
-                                type="button"
-                                disabled={paymentUpdatingId === b.id}
-                                onClick={() => handleRecordPayment(b.id, "UPI_COUNTER")}
-                                className="text-[11px] bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 px-2.5 py-1.5 rounded-xl font-medium transition-all"
-                              >
-                                Collect UPI
-                              </button>
-                            </>
-                          )}
-                          {b.status === "CONFIRMED" ? (
-                            <button
-                              onClick={() => setCancelModalBooking(b)}
-                              className="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-xl font-medium transition-all"
-                            >
-                              Cancel Slot
-                            </button>
-                          ) : (
-                            <span className="text-[10px] text-white/40 italic">
-                              {b.cancellationReason || "No actions"}
+              (() => {
+                const formattedResults = lookupResults.map((b) => {
+                  const slotLabel = new Date(b.startTime).toLocaleString("en-IN", {
+                    timeZone: "Asia/Kolkata",
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: true,
+                  });
+                  const statusBadgeClass =
+                    b.status === "CONFIRMED"
+                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                      : b.status === "CANCELLED"
+                      ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                      : "bg-amber-500/20 text-amber-400 border border-amber-500/30";
+                  const canCollect =
+                    b.status === "CONFIRMED" &&
+                    (b.paymentStatus === "PAY_AT_VENUE" || b.paymentStatus === "PENDING");
+                  return { b, slotLabel, statusBadgeClass, canCollect };
+                });
+
+                return (
+                  <>
+                    {/* Mobile Cards */}
+                    <div className="md:hidden space-y-3">
+                      {formattedResults.map(({ b, slotLabel, statusBadgeClass, canCollect }) => (
+                        <div
+                          key={b.id}
+                          className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3 text-xs"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="font-mono font-bold text-white">#{b.id.slice(-6).toUpperCase()}</div>
+                              <div className="font-semibold text-white/90 mt-0.5">{b.courtName}</div>
+                              <div className="text-[11px] text-white/60 mt-0.5">{slotLabel} IST</div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div className="font-bold text-sm text-[#c7f711]">₹{b.totalPrice}</div>
+                              <span className={`inline-block mt-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${statusBadgeClass}`}>
+                                {b.status}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/10">
+                            <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-white/10 text-white/80">
+                              {b.paymentStatus.replace(/_/g, " ")}
                             </span>
+                            {b.status !== "CONFIRMED" && (
+                              <span className="text-[10px] text-white/50 italic">
+                                {b.cancellationReason || "No actions"}
+                              </span>
+                            )}
+                          </div>
+
+                          {b.status === "CONFIRMED" && (
+                            <div className="flex flex-wrap gap-2 pt-1">
+                              {canCollect && (
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={paymentUpdatingId === b.id}
+                                    onClick={() => handleRecordPayment(b.id, "CASH_COUNTER")}
+                                    className="flex-1 min-h-[40px] text-xs bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 px-3 py-2 rounded-xl font-medium transition-all"
+                                  >
+                                    Collect Cash
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={paymentUpdatingId === b.id}
+                                    onClick={() => handleRecordPayment(b.id, "UPI_COUNTER")}
+                                    className="flex-1 min-h-[40px] text-xs bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 px-3 py-2 rounded-xl font-medium transition-all"
+                                  >
+                                    Collect UPI
+                                  </button>
+                                </>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setCancelModalBooking(b)}
+                                className="flex-1 min-h-[40px] text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-2 rounded-xl font-medium transition-all"
+                              >
+                                Cancel Slot
+                              </button>
+                            </div>
                           )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Tablet / Desktop Table */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-white/10 text-white/50 uppercase tracking-wider">
+                            <th className="py-3 px-4">Booking Ref</th>
+                            <th className="py-3 px-4">Court</th>
+                            <th className="py-3 px-4">Slot Time</th>
+                            <th className="py-3 px-4">Amount</th>
+                            <th className="py-3 px-4">Payment</th>
+                            <th className="py-3 px-4">Status</th>
+                            <th className="py-3 px-4 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {formattedResults.map(({ b, slotLabel, statusBadgeClass, canCollect }) => (
+                            <tr key={b.id} className="hover:bg-white/5 transition-colors">
+                              <td className="py-3.5 px-4 font-mono font-bold text-white">
+                                #{b.id.slice(-6).toUpperCase()}
+                              </td>
+                              <td className="py-3.5 px-4 text-white/90 font-medium">{b.courtName}</td>
+                              <td className="py-3.5 px-4 text-white/70">{slotLabel} IST</td>
+                              <td className="py-3.5 px-4 font-bold text-[#c7f711]">₹{b.totalPrice}</td>
+                              <td className="py-3.5 px-4">
+                                <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-white/10 text-white/80">
+                                  {b.paymentStatus.replace(/_/g, " ")}
+                                </span>
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${statusBadgeClass}`}>
+                                  {b.status}
+                                </span>
+                              </td>
+                              <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
+                                {canCollect && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      disabled={paymentUpdatingId === b.id}
+                                      onClick={() => handleRecordPayment(b.id, "CASH_COUNTER")}
+                                      className="text-[11px] bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 px-2.5 py-1.5 rounded-xl font-medium transition-all"
+                                    >
+                                      Collect Cash
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={paymentUpdatingId === b.id}
+                                      onClick={() => handleRecordPayment(b.id, "UPI_COUNTER")}
+                                      className="text-[11px] bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 px-2.5 py-1.5 rounded-xl font-medium transition-all"
+                                    >
+                                      Collect UPI
+                                    </button>
+                                  </>
+                                )}
+                                {b.status === "CONFIRMED" ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setCancelModalBooking(b)}
+                                    className="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-xl font-medium transition-all"
+                                  >
+                                    Cancel Slot
+                                  </button>
+                                ) : (
+                                  <span className="text-[10px] text-white/40 italic">
+                                    {b.cancellationReason || "No actions"}
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                );
+              })()
             ) : (
               <div className="p-8 text-center border border-dashed border-white/10 rounded-2xl text-white/40 text-xs">
                 {searchPhone
@@ -1560,9 +1672,9 @@ export default function StaffPanelPage() {
                 aria-labelledby="staff-cancel-modal-title"
                 className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
               >
-                <div className="bg-[#0d141f] border border-white/15 rounded-3xl p-6 sm:p-8 max-w-md w-full">
+                <div className="bg-[#0d141f] border border-white/15 rounded-3xl p-5 sm:p-8 max-w-md w-full max-h-[92vh] overflow-y-auto">
                   <div className="flex items-center gap-3 text-red-400 mb-4">
-                    <ShieldAlert className="w-6 h-6" />
+                    <ShieldAlert className="w-6 h-6 shrink-0" aria-hidden="true" />
                     <h3 id="staff-cancel-modal-title" className="font-bold text-lg text-white">Confirm Desk Cancellation</h3>
                   </div>
                   <p className="text-xs text-white/70 mb-4">
@@ -1570,29 +1682,32 @@ export default function StaffPanelPage() {
                   </p>
 
                   <div className="mb-4">
-                    <label className="text-xs font-semibold text-white/80 block mb-1">
+                    <label htmlFor="staff-cancel-reason" className="text-xs font-semibold text-white/80 block mb-1">
                       Reason for Cancellation (Audit Log) *
                     </label>
                     <textarea
+                      id="staff-cancel-reason"
                       required
                       placeholder="e.g. Customer called to reschedule, rain cancellation, etc."
                       value={cancelReason}
                       onChange={(e) => setCancelReason(e.target.value)}
-                      className="w-full bg-white/5 border border-white/15 rounded-xl p-3 text-xs text-white placeholder-white/30 focus:outline-none focus:border-red-400 h-24"
+                      className="w-full min-w-0 bg-white/5 border border-white/15 rounded-xl p-3 text-base sm:text-xs text-white placeholder-white/30 focus:outline-none focus:border-red-400 h-24"
                     />
                   </div>
 
-                  <div className="flex gap-3 justify-end">
+                  <div className="flex flex-wrap gap-3 justify-end">
                     <button
+                      type="button"
                       onClick={() => setCancelModalBooking(null)}
-                      className="px-4 py-2 rounded-xl text-xs text-white/70 hover:text-white border border-white/10"
+                      className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] rounded-xl text-xs text-white/70 hover:text-white border border-white/10"
                     >
                       Dismiss
                     </button>
                     <button
+                      type="button"
                       onClick={handleStaffCancel}
                       disabled={cancelLoading || !cancelReason}
-                      className="px-5 py-2 rounded-xl text-xs font-bold bg-red-500 hover:bg-red-600 text-white transition-all disabled:opacity-50"
+                      className="w-full sm:w-auto px-5 py-2.5 min-h-[44px] rounded-xl text-xs font-bold bg-red-500 hover:bg-red-600 text-white transition-all disabled:opacity-50"
                     >
                       {cancelLoading ? "Processing..." : "Confirm Cancellation"}
                     </button>
