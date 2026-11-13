@@ -118,6 +118,26 @@ const GALLERY_ITEMS: GalleryItem[] = [
     aspect: "standard",
     caption: "Evening LED lighting setup across our dedicated Gondal pickleball courts.",
   },
+  {
+    id: "gal-9",
+    type: "image",
+    title: "Overhead Smash & Volley Action (Play)",
+    category: "tournament",
+    tag: "Match Action",
+    src: "/images/joola-court.jpg",
+    aspect: "standard",
+    caption: "Agile overhead court coverage and smashes during competitive play.",
+  },
+  {
+    id: "gal-10",
+    type: "image",
+    title: "Court Arena Illumination (Night)",
+    category: "tournament",
+    tag: "Arena",
+    src: "/images/court-wide.jpg",
+    aspect: "standard",
+    caption: "Evening LED lighting setup across our dedicated Gondal pickleball courts.",
+  },
 ];
 
 export default function ArenaGallery({ standardRate = 400 }: { standardRate?: number } = {}) {

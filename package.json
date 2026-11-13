@@ -6,7 +6,7 @@
     "dev": "npm --prefix frontend run dev",
     "build": "npm --prefix frontend run build",
     "lint": "npm --prefix frontend run lint",
-    "backend:db:generate": "npm --prefix backend run db:generate"
+    "backend:db:generate": "npm --prefix backend run db:generate",
+    "live": "node .agent/skills/live-edit/scripts/live.mjs start"
   }
 }
-
