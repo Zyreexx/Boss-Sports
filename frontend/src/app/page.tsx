@@ -442,7 +442,7 @@ export default function HomePage() {
       {/* ========================================================================= */}
       {/* 1. HEADER (Hero + Top Nav) */}
       {/* ========================================================================= */}
-      <header className="relative w-full min-h-[82vh] sm:min-h-[92vh] flex flex-col justify-between overflow-hidden bg-[#0d1a2c]">
+      <header className="relative w-full min-h-screen min-h-[100dvh] flex flex-col justify-between overflow-hidden bg-[#0d1a2c]">
         {/* Background Hero Image with Dynamic Action Player */}
         <div className="absolute inset-0 z-0">
           <Image
