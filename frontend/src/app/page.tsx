@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import LoginModal from "@/components/LoginModal";
 import ArenaGallery from "@/components/ArenaGallery";
+import { formatDurationLabel, formatBookingDuration, SUPPORTED_DURATIONS_MINUTES } from "@/lib/utils/duration";
 
 export default function HomePage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -44,6 +45,7 @@ export default function HomePage() {
   const [selectedCourtId, setSelectedCourtId] = useState<string>("court-1");
   const [availableSlots, setAvailableSlots] = useState<any[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<any | null>(null);
+  const [durationMinutes, setDurationMinutes] = useState<number>(60);
 
   // 10-minute Hold state
   const [holdSessionId, setHoldSessionId] = useState<string>("");
@@ -56,6 +58,50 @@ export default function HomePage() {
   const [bookingSubmitting, setBookingSubmitting] = useState<boolean>(false);
   const [confirmedBooking, setConfirmedBooking] = useState<any | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
+
+  const selectedRangeDetails = React.useMemo(() => {
+    if (!selectedSlot) return null;
+    const startMs = new Date(selectedSlot.startTime).getTime();
+    const endMs = startMs + durationMinutes * 60 * 1000;
+    const endIso = new Date(endMs).toISOString();
+
+    const coveredSlots = availableSlots.filter((s) => {
+      const sStart = new Date(s.startTime).getTime();
+      const sEnd = new Date(s.endTime).getTime();
+      return sStart < endMs && sEnd > startMs;
+    });
+
+    const numIntervals = Math.max(1, durationMinutes / 30);
+    const isFullyAvailable = coveredSlots.length === numIntervals &&
+      coveredSlots.every((s) => s.isAvailable || s.slotId === selectedSlot.slotId || (activeHold && s.startTime === activeHold.startTime));
+
+    const totalPrice = coveredSlots.length > 0
+      ? coveredSlots.reduce((sum, s) => sum + (s.price || 200), 0)
+      : (durationMinutes / 60) * 400;
+
+    const startLocal = new Date(selectedSlot.startTime).toLocaleTimeString("en-GB", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    const endLocal = new Date(endMs).toLocaleTimeString("en-GB", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+
+    return {
+      startTime: selectedSlot.startTime,
+      endTime: endIso,
+      timeLabel: `${startLocal} - ${endLocal}`,
+      durationMinutes,
+      durationLabel: formatDurationLabel(durationMinutes),
+      totalPrice,
+      isFullyAvailable,
+    };
+  }, [selectedSlot, durationMinutes, availableSlots, activeHold]);
 
   // Sync & Connection Status state
   const [isRefreshingAvailability, setIsRefreshingAvailability] = useState<boolean>(false);
@@ -244,10 +290,13 @@ export default function HomePage() {
     }
   };
 
-  // Lock a 10-minute hold on a slot
-  const handleSelectSlot = async (slot: any) => {
+  // Lock a 10-minute hold on a flexible slot range
+  const handleSelectSlot = async (slot: any, chosenDuration: number = durationMinutes) => {
     if (!slot.isAvailable) return;
     setBookingError(null);
+
+    const endMs = new Date(slot.startTime).getTime() + chosenDuration * 60 * 1000;
+    const computedEndTime = new Date(endMs).toISOString();
 
     try {
       const res = await fetch("/api/pickleball/hold", {
@@ -256,7 +305,7 @@ export default function HomePage() {
         body: JSON.stringify({
           courtId: selectedCourtId || (courts[0] && courts[0].id),
           startTime: slot.startTime,
-          endTime: slot.endTime,
+          endTime: computedEndTime,
           sessionId: holdSessionId,
         }),
       });
@@ -278,6 +327,13 @@ export default function HomePage() {
     }
   };
 
+  const handleChangeDuration = async (newDuration: number) => {
+    setDurationMinutes(newDuration);
+    if (selectedSlot) {
+      await handleSelectSlot(selectedSlot, newDuration);
+    }
+  };
+
   // Confirm Booking
   const handleConfirmBooking = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -288,6 +344,9 @@ export default function HomePage() {
     setBookingSubmitting(true);
     setBookingError(null);
 
+    const endMs = new Date(selectedSlot.startTime).getTime() + durationMinutes * 60 * 1000;
+    const computedEndTime = new Date(endMs).toISOString();
+
     try {
       const res = await fetch("/api/pickleball/book", {
         method: "POST",
@@ -295,7 +354,7 @@ export default function HomePage() {
         body: JSON.stringify({
           courtId: selectedCourtId || courts[0]?.id,
           startTime: selectedSlot.startTime,
-          endTime: selectedSlot.endTime,
+          endTime: computedEndTime,
           customerName: custName,
           customerPhone: custPhone,
           source: "ONLINE",
@@ -813,7 +872,7 @@ export default function HomePage() {
                   <span className="text-emerald-700 block">
                     Duration &amp; {confirmedBooking.paymentStatus === "PAID_ONLINE" ? "Paid Online" : "Due at Venue (Cash / UPI)"}:
                   </span>
-                  <span className="font-bold text-sm text-emerald-900">60 Minutes • ₹{confirmedBooking.totalPrice}</span>
+                  <span className="font-bold text-sm text-emerald-900">{formatBookingDuration(confirmedBooking)} • ₹{confirmedBooking.totalPrice}</span>
                 </div>
               </div>
 
@@ -986,8 +1045,13 @@ export default function HomePage() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
                   {availableSlots.length > 0 ? (
                     availableSlots.map((slot) => {
-                      const isSelected = selectedSlot?.slotId === slot.slotId;
-                      const isHeld = slot.status === "HELD";
+                      const slotStartMs = new Date(slot.startTime).getTime();
+                      const slotEndMs = new Date(slot.endTime).getTime();
+                      const rangeStartMs = selectedSlot ? new Date(selectedSlot.startTime).getTime() : 0;
+                      const rangeEndMs = selectedSlot ? rangeStartMs + durationMinutes * 60 * 1000 : 0;
+                      const isRangeCovered = Boolean(selectedSlot && slotStartMs >= rangeStartMs && slotEndMs <= rangeEndMs);
+                      const isSelected = selectedSlot?.slotId === slot.slotId || isRangeCovered;
+                      const isHeld = slot.status === "HELD" && !isRangeCovered;
                       const isBooked = slot.status === "BOOKED";
                       const isBlocked = slot.status === "BLOCKED";
                       const isPassed = slot.status === "PASSED";
@@ -999,7 +1063,7 @@ export default function HomePage() {
                       if (isSelected) {
                         cardStyle = "bg-[#c7f711] border-[#0d1a2c] text-black font-semibold shadow-md ring-2 ring-[#0d1a2c]/30";
                         statusBadgeClass = "bg-black";
-                        statusBadgeLabel = "● Selected";
+                        statusBadgeLabel = slot.slotId === selectedSlot?.slotId ? "● Start Time" : "● Selected";
                       } else if (isPassed) {
                         cardStyle = "bg-neutral-100 border-neutral-300 text-neutral-600 cursor-not-allowed";
                         statusBadgeClass = "bg-neutral-500";
@@ -1036,7 +1100,7 @@ export default function HomePage() {
                         <button
                           key={slot.slotId}
                           type="button"
-                          disabled={!slot.isAvailable}
+                          disabled={!slot.isAvailable && !isSelected}
                           onClick={() => handleSelectSlot(slot)}
                           aria-label={accessibleText}
                           aria-pressed={isSelected}
@@ -1121,16 +1185,39 @@ export default function HomePage() {
                     </span>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <span>Selected Slot</span>
+                    <span>Selected Window</span>
                     <span className="text-[#c7f711] font-semibold text-right">
-                      {selectedSlot ? selectedSlot.timeLabel : "Select an available slot"}
+                      {selectedRangeDetails ? selectedRangeDetails.timeLabel : "Select an available slot"}
                     </span>
                   </div>
-                  <div className="flex justify-between gap-3">
-                    <span>Duration</span>
-                    <span className="text-white text-right">60 Minutes</span>
+                  <div className="flex flex-col gap-2 pt-1 border-t border-white/10">
+                    <div className="flex justify-between items-center">
+                      <span>Duration</span>
+                      <span className="text-[#c7f711] font-bold">
+                        {selectedRangeDetails ? selectedRangeDetails.durationLabel : formatDurationLabel(durationMinutes)}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                      {[30, 60, 90, 120, 150, 180].map((mins) => {
+                        const isSelectedDuration = durationMinutes === mins;
+                        return (
+                          <button
+                            key={mins}
+                            type="button"
+                            onClick={() => handleChangeDuration(mins)}
+                            className={`py-1.5 px-2 rounded-lg text-xs font-semibold border transition-all text-center ${
+                              isSelectedDuration
+                                ? "bg-[#c7f711] text-black border-[#c7f711] shadow-sm font-bold"
+                                : "bg-white/10 hover:bg-white/20 text-white/90 border-white/15"
+                            }`}
+                          >
+                            {mins === 30 ? "30m" : mins === 60 ? "1 hr" : mins === 90 ? "1.5h" : mins === 120 ? "2 hrs" : mins === 150 ? "2.5h" : "3 hrs"}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="flex justify-between gap-3">
+                  <div className="flex justify-between gap-3 pt-1 border-t border-white/10">
                     <span>Payment Method</span>
                     <span className="text-white font-medium text-right">Pay at Venue (Cash / UPI)</span>
                   </div>
@@ -1192,9 +1279,9 @@ export default function HomePage() {
                   )}
 
                   <div className="flex items-center justify-between gap-2 text-xs font-semibold text-white pt-2">
-                    <span>Total Amount</span>
+                    <span>Total Amount ({selectedRangeDetails ? selectedRangeDetails.durationLabel : formatDurationLabel(durationMinutes)})</span>
                     <span className="text-lg text-[#c7f711]">
-                      {selectedSlot ? `₹${selectedSlot.price}` : "Select a slot"}
+                      {selectedRangeDetails ? `₹${selectedRangeDetails.totalPrice}` : "Select a slot"}
                     </span>
                   </div>
 

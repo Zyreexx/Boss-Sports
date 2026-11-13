@@ -126,6 +126,7 @@ class Booking(models.Model):
     start_time = models.TimeField()
     end_time = models.TimeField()
     duration_hours = models.PositiveIntegerField(default=1)
+    duration_minutes = models.PositiveIntegerField(default=60)
 
     source = models.CharField(max_length=16, choices=SOURCE_CHOICES, default='ONLINE')
     total_price = models.DecimalField(max_digits=8, decimal_places=2, default=400.00)
@@ -164,6 +165,15 @@ class Booking(models.Model):
     def public_id(self) -> str:
         return self.external_id or f"BK-{self.id}"
 
+    @property
+    def duration_display(self) -> str:
+        mins = self.duration_minutes or (self.duration_hours * 60)
+        hours = mins / 60.0
+        if hours.is_integer():
+            h = int(hours)
+            return f"{h} hour" if h == 1 else f"{h} hours"
+        return f"{hours:g} hours"
+
     def sync_datetimes(self):
         if self.start_at and self.end_at:
             ist_start = timezone.localtime(self.start_at, VENUE_TZ)
@@ -172,6 +182,7 @@ class Booking(models.Model):
             self.start_time = ist_start.time().replace(tzinfo=None, microsecond=0)
             self.end_time = ist_end.time().replace(tzinfo=None, microsecond=0)
             diff_seconds = (self.end_at - self.start_at).total_seconds()
+            self.duration_minutes = max(30, int(round(diff_seconds / 60)))
             self.duration_hours = max(1, int(round(diff_seconds / 3600)))
         elif self.booking_date and self.start_time and self.end_time:
             local_start = datetime.combine(self.booking_date, self.start_time, tzinfo=VENUE_TZ)
@@ -180,6 +191,7 @@ class Booking(models.Model):
             self.start_at = local_start
             self.end_at = local_end
             diff_seconds = (local_end - local_start).total_seconds()
+            self.duration_minutes = max(30, int(round(diff_seconds / 60)))
             self.duration_hours = max(1, int(round(diff_seconds / 3600)))
 
     def save(self, *args, **kwargs):

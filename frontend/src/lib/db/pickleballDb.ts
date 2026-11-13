@@ -47,12 +47,22 @@ export interface Court {
   isActive: boolean;
 }
 
+export function formatDurationDisplay(minutes: number): string {
+  const hours = minutes / 60;
+  if (Number.isInteger(hours)) {
+    return hours === 1 ? "1 hour" : `${hours} hours`;
+  }
+  return `${hours} hours`;
+}
+
 export interface Booking {
   id: string;
   courtId: string;
   courtName: string;
   startTime: string; // ISO 8601 string
   endTime: string;   // ISO 8601 string
+  durationMinutes?: number;
+  durationDisplay?: string;
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
@@ -754,9 +764,9 @@ class PickleballDatabaseService {
     };
 
     let currentMin = startMinutes;
-    while (currentMin + 60 <= endMinutes) {
+    while (currentMin + 30 <= endMinutes) {
       const slotStartMin = currentMin;
-      const slotEndMin = currentMin + 60;
+      const slotEndMin = currentMin + 30;
 
       const sDayOffset = Math.floor(slotStartMin / 1440);
       const sHour = Math.floor((slotStartMin % 1440) / 60);
@@ -783,7 +793,7 @@ class PickleballDatabaseService {
         displayLabel: `${sLabel} - ${eLabel}${sDayOffset > 0 ? " (+1d)" : ""}`,
       });
 
-      currentMin += 60;
+      currentMin += 30;
     }
 
     const results = courts.map((court) => {
@@ -829,10 +839,11 @@ class PickleballDatabaseService {
         else if (activeBooking) status = "BOOKED";
         else if (activeHold) status = "HELD";
 
-        // Dynamic price calculation
-        const price = interval.isPeak
+        // Dynamic price calculation for 30-minute interval
+        const hourlyRate = interval.isPeak
           ? pricing.peakSurgePricePerHour || 550
           : court.basePricePerHour || pricing.basePricePerHour || 400;
+        const price = hourlyRate / 2;
 
         return {
           courtId: court.id,
@@ -886,6 +897,17 @@ class PickleballDatabaseService {
     this.pruneExpiredHolds(state);
 
     const { courtId, startTime, endTime, sessionId } = params;
+
+    const startMs = new Date(startTime).getTime();
+    const endMs = new Date(endTime).getTime();
+    if (isNaN(startMs) || isNaN(endMs) || endMs <= startMs) {
+      return { success: false, error: "End time must be after start time." };
+    }
+    const diffMinutes = Math.round((endMs - startMs) / 60000);
+    const validDurations = [30, 60, 90, 120, 150, 180];
+    if (!validDurations.includes(diffMinutes)) {
+      return { success: false, error: "Booking duration must be between 30 minutes and 3 hours in 30-minute increments." };
+    }
 
     if (new Date(startTime).getTime() <= Date.now()) {
       return { success: false, error: "Cannot hold a slot that has already started or passed." };
@@ -1037,28 +1059,38 @@ class PickleballDatabaseService {
       return { success: false, error: "Court is blocked for maintenance or tournament during this time." };
     }
 
-    // Price calculation with multi-hour support and IST venue timezone peak surge detection
+    // Flexible duration and 30-minute interval pricing logic
     const startMs = new Date(startTime).getTime();
     const endMs = new Date(endTime).getTime();
-    const durationHours = Math.max(1, Math.round((endMs - startMs) / 3600000));
+    if (isNaN(startMs) || isNaN(endMs) || endMs <= startMs) {
+      return { success: false, error: "End time must be after start time." };
+    }
+    const diffMinutes = Math.round((endMs - startMs) / 60000);
+    const validDurations = [30, 60, 90, 120, 150, 180];
+    if (!validDurations.includes(diffMinutes)) {
+      return { success: false, error: "Booking duration must be between 30 minutes and 3 hours in 30-minute increments." };
+    }
+
+    const numHalfHours = Math.max(1, diffMinutes / 30);
     let basePrice = 0;
 
-    for (let h = 0; h < durationHours; h++) {
-      const hourDate = new Date(startMs + h * 3600000);
+    for (let i = 0; i < numHalfHours; i++) {
+      const chunkDate = new Date(startMs + i * 30 * 60000);
       const istHour = new Intl.DateTimeFormat("en-GB", {
         timeZone: VENUE_TIMEZONE,
         hour: "2-digit",
         hour12: false,
-      }).format(hourDate);
+      }).format(chunkDate);
 
       const isPeakHour =
         state.pricingConfig?.isPeakSurgeActive &&
         state.pricingConfig?.peakHours &&
         state.pricingConfig.peakHours.some((ph) => ph.startsWith(istHour));
 
-      basePrice += isPeakHour
+      const hourlyRate = isPeakHour
         ? state.pricingConfig?.peakSurgePricePerHour || court.basePricePerHour
         : court.basePricePerHour;
+      basePrice += hourlyRate / 2;
     }
 
     let discountAmount = 0;
@@ -1091,6 +1123,8 @@ class PickleballDatabaseService {
       courtName: court.name,
       startTime,
       endTime,
+      durationMinutes: diffMinutes,
+      durationDisplay: formatDurationDisplay(diffMinutes),
       customerName,
       customerPhone,
       customerEmail,

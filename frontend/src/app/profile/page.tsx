@@ -20,6 +20,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import LoginModal from "@/components/LoginModal";
+import { formatBookingDuration } from "@/lib/utils/duration";
 
 export default function CustomerProfilePage() {
   const [currentUser, setCurrentUser] = useState<any | null>(null);
@@ -416,7 +417,7 @@ export default function CustomerProfilePage() {
                             </h3>
                             <div className="flex items-center gap-1.5 text-xs text-white/75 mt-1">
                               <Clock className="w-3.5 h-3.5 text-white/50 shrink-0" />
-                              <span className="font-mono">{timeFormatted}</span>
+                              <span className="font-mono">{timeFormatted} • {formatBookingDuration(b)}</span>
                             </div>
                           </div>
 
@@ -490,7 +491,7 @@ export default function CustomerProfilePage() {
                         <span className="font-bold text-[#c7f711]">₹{b.totalPrice || 400}</span>
                       </div>
                       <div className="text-white/75">
-                        {new Date(b.startTime).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })} • {new Date(b.startTime).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })} IST
+                        {new Date(b.startTime).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })} • {new Date(b.startTime).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })} IST ({formatBookingDuration(b)})
                       </div>
                       <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/10">
                         <span className="font-mono text-[11px] text-white/55">#{b.id.slice(-6).toUpperCase()}</span>
@@ -530,7 +531,7 @@ export default function CustomerProfilePage() {
                             {b.courtName || "Court 1"}
                           </td>
                           <td className="p-3.5 text-white/70">
-                            {new Date(b.startTime).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })} • {new Date(b.startTime).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })} IST
+                            {new Date(b.startTime).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })} • {new Date(b.startTime).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })} IST ({formatBookingDuration(b)})
                           </td>
                           <td className="p-3.5 font-bold text-[#c7f711]">
                             ₹{b.totalPrice || 400}

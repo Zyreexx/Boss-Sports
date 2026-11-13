@@ -25,6 +25,7 @@ import {
 import LoginModal from "@/components/LoginModal";
 import CourtManager from "@/components/CourtManager";
 import GalleryManager from "@/components/GalleryManager";
+import { formatBookingDuration } from "@/lib/utils/duration";
 
 export default function OwnerAdminPage() {
   const [activeTab, setActiveTab] = useState<"reports" | "courts" | "gallery" | "pricing" | "schedule" | "blocks">("reports");
@@ -865,7 +866,7 @@ export default function OwnerAdminPage() {
                                 <div className="font-semibold text-white">{dateStr}</div>
                                 <div className="text-[11px] text-white/60 font-mono flex items-center gap-1 mt-0.5">
                                   <Clock className="w-3 h-3 text-[#c7f711] shrink-0" aria-hidden="true" />
-                                  <span>{timeStr}</span>
+                                  <span>{timeStr} ({formatBookingDuration(b)})</span>
                                 </div>
                               </div>
                               <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-white/10 text-white border border-white/10 shrink-0">
@@ -921,7 +922,7 @@ export default function OwnerAdminPage() {
                                   <div className="text-white font-semibold">{dateStr}</div>
                                   <div className="text-[11px] text-white/50 font-mono flex items-center gap-1">
                                     <Clock className="w-3 h-3 text-[#c7f711]" aria-hidden="true" />
-                                    <span>{timeStr}</span>
+                                    <span>{timeStr} ({formatBookingDuration(b)})</span>
                                   </div>
                                 </td>
                                 <td className="py-3 px-3 whitespace-nowrap">

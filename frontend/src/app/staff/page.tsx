@@ -26,6 +26,7 @@ import {
 import LoginModal from "@/components/LoginModal";
 import CourtManager from "@/components/CourtManager";
 import GalleryManager from "@/components/GalleryManager";
+import { formatBookingDuration, formatDurationLabel, SUPPORTED_DURATIONS_MINUTES } from "@/lib/utils/duration";
 
 export default function StaffPanelPage() {
   const [activeTab, setActiveTab] = useState<"pickleball" | "courts" | "gallery" | "schedule" | "lookup">("pickleball");
@@ -48,7 +49,7 @@ export default function StaffPanelPage() {
   const [selectedCourt, setSelectedCourt] = useState("");
   const [selectedDate, setSelectedDate] = useState(todayIst);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("07:00");
-  const [durationHours, setDurationHours] = useState(1);
+  const [durationMinutes, setDurationMinutes] = useState(60);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [bookingSource, setBookingSource] = useState<"WALKIN" | "PHONE">("WALKIN");
@@ -326,7 +327,7 @@ export default function StaffPanelPage() {
 
     // Anchor selected date and slot strictly in Asia/Kolkata (+05:30 IST)
     const startObj = new Date(`${selectedDate}T${selectedTimeSlot}:00+05:30`);
-    const endObj = new Date(startObj.getTime() + durationHours * 60 * 60 * 1000);
+    const endObj = new Date(startObj.getTime() + durationMinutes * 60 * 1000);
 
     try {
       const res = await fetch("/api/pickleball/book", {
@@ -807,7 +808,7 @@ export default function StaffPanelPage() {
                         <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-[11px]">
                           <div className="text-white/70 flex items-center gap-1 min-w-0">
                             <Clock className="w-3 h-3 text-[#c7f711] shrink-0" aria-hidden="true" />
-                            <span className="truncate">{dateStr} • {timeStr}</span>
+                            <span className="truncate">{dateStr} • {timeStr} ({formatBookingDuration(b)})</span>
                           </div>
                           <span
                             className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase shrink-0 ${b.paymentStatus === "PAID_ONLINE" || b.paymentStatus === "CASH_COUNTER"
@@ -982,15 +983,18 @@ export default function StaffPanelPage() {
                         onChange={(e) => setSelectedTimeSlot(e.target.value)}
                         className="w-full min-w-0 min-h-[44px] bg-[#161f2e] border border-white/15 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-white focus:outline-none focus:border-[#c7f711]"
                       >
-                        {[
-                          "06:00", "07:00", "08:00", "09:00", "10:00", "11:00",
-                          "12:00", "13:00", "14:00", "15:00", "16:00", "17:00",
-                          "18:00", "19:00", "20:00", "21:00", "22:00"
-                        ].map((slot) => (
-                          <option key={slot} value={slot}>
-                            {slot}:00 ({Number(slot) >= 12 ? (Number(slot) === 12 ? "12 PM" : `${Number(slot) - 12} PM`) : `${slot} AM`})
-                          </option>
-                        ))}
+                        {Array.from({ length: 34 }).map((_, idx) => {
+                          const totalMinutes = 6 * 60 + idx * 30; // 06:00 to 22:30
+                          const h = Math.floor(totalMinutes / 60);
+                          const m = totalMinutes % 60;
+                          const slotStr = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+                          const ampm = `${h >= 12 ? (h === 12 ? 12 : h - 12) : h}:${m.toString().padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
+                          return (
+                            <option key={slotStr} value={slotStr}>
+                              {slotStr} ({ampm})
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
 
@@ -1000,13 +1004,16 @@ export default function StaffPanelPage() {
                       </label>
                       <select
                         id="staff-book-duration"
-                        value={durationHours}
-                        onChange={(e) => setDurationHours(Number(e.target.value))}
+                        value={durationMinutes}
+                        onChange={(e) => setDurationMinutes(Number(e.target.value))}
                         className="w-full min-w-0 min-h-[44px] bg-[#161f2e] border border-white/15 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-white focus:outline-none focus:border-[#c7f711]"
                       >
-                        <option value={1}>1 Hour (Standard)</option>
-                        <option value={2}>2 Hours</option>
-                        <option value={3}>3 Hours</option>
+                        <option value={30}>0.5 hours (30 mins)</option>
+                        <option value={60}>1 hour (Standard)</option>
+                        <option value={90}>1.5 hours (90 mins)</option>
+                        <option value={120}>2 hours</option>
+                        <option value={150}>2.5 hours (150 mins)</option>
+                        <option value={180}>3 hours (Max)</option>
                       </select>
                     </div>
                   </div>
@@ -1149,7 +1156,7 @@ export default function StaffPanelPage() {
                     ) : (
                       <>
                         <CheckCircle className="w-5 h-5 shrink-0" aria-hidden="true" />
-                        <span>Confirm &amp; Issue Receipt (Base Est. ₹{durationHours * selectedCourtRate})</span>
+                        <span>Confirm &amp; Issue Receipt (Base Est. ₹{Math.round((durationMinutes / 60) * selectedCourtRate)})</span>
                       </>
                     )}
                   </button>

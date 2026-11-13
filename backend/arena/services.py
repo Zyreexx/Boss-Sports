@@ -32,7 +32,16 @@ from .models import (
 VENUE_TZ = ZoneInfo('Asia/Kolkata')
 HOLD_TTL_MINUTES = 10
 MIN_BOOKING_DURATION_SECONDS = 30 * 60
-MAX_BOOKING_DURATION_SECONDS = 12 * 3600
+MAX_BOOKING_DURATION_SECONDS = 3 * 3600
+VALID_BOOKING_DURATIONS_MINUTES = {30, 60, 90, 120, 150, 180}
+
+
+def format_duration_display(minutes: int) -> str:
+    hours = minutes / 60.0
+    if hours.is_integer():
+        h = int(hours)
+        return f"{h} hour" if h == 1 else f"{h} hours"
+    return f"{hours:g} hours"
 
 COLLECTED_PAYMENT_STATUSES = {'PAID_ONLINE', 'CASH_COUNTER', 'UPI_COUNTER', 'PAID'}
 PENDING_PAYMENT_STATUSES = {'PAY_AT_VENUE', 'PENDING'}
@@ -241,6 +250,9 @@ def serialize_booking(b: Booking, include_pii: bool = True) -> dict:
         'startTime': to_utc_iso(b.start_at),
         'endTime': to_utc_iso(b.end_at),
         'bookingDate': b.booking_date.isoformat(),
+        'durationMinutes': b.duration_minutes,
+        'durationHours': round(b.duration_minutes / 60.0, 1),
+        'durationDisplay': b.duration_display,
         'source': b.source,
         'status': b.status,
         'paymentStatus': b.payment_status,
@@ -415,11 +427,11 @@ def get_availability(date_str: str, court_id: Optional[str] = None, viewer_is_st
 
     intervals = []
     cur_min = start_minutes
-    while cur_min + 60 <= end_minutes:
+    while cur_min + 30 <= end_minutes:
         s_day_offset = cur_min // 1440
         s_hour = (cur_min % 1440) // 60
         s_min = cur_min % 60
-        e_min_total = cur_min + 60
+        e_min_total = cur_min + 30
         e_day_offset = e_min_total // 1440
         e_hour = (e_min_total % 1440) // 60
         e_min = e_min_total % 60
@@ -439,7 +451,7 @@ def get_availability(date_str: str, court_id: Optional[str] = None, viewer_is_st
             'is_peak': is_peak,
             'display_time': f"{s_label} - {e_label}{' (+1d)' if s_day_offset > 0 else ''}",
         })
-        cur_min += 60
+        cur_min += 30
 
     if not intervals or not courts:
         window_start = build_venue_interval_dt(date_str, 0, 0, 0)
@@ -505,7 +517,7 @@ def get_availability(date_str: str, court_id: Optional[str] = None, viewer_is_st
             else:
                 slot_status = 'AVAILABLE'
 
-            slot_price = peak_price if iv['is_peak'] else float(court.price_per_hour or pricing.base_price_per_hour)
+            slot_price = (peak_price / 2.0) if iv['is_peak'] else float(court.price_per_hour or pricing.base_price_per_hour) / 2.0
 
             slot_payload = {
                 'courtId': court.public_id,
@@ -583,9 +595,22 @@ def get_availability(date_str: str, court_id: Optional[str] = None, viewer_is_st
 def _validate_interval(start_at: datetime, end_at: datetime):
     if end_at <= start_at:
         raise DomainError("End time must be after start time.", status_code=400)
-    seconds = (end_at - start_at).total_seconds()
-    if seconds < MIN_BOOKING_DURATION_SECONDS or seconds > MAX_BOOKING_DURATION_SECONDS:
-        raise DomainError("Slot duration must be between 30 minutes and 12 hours.", status_code=400)
+
+    ist_start = timezone.localtime(start_at, VENUE_TZ)
+    ist_end = timezone.localtime(end_at, VENUE_TZ)
+
+    if ist_start.minute not in (0, 30) or ist_start.second != 0 or ist_start.microsecond != 0:
+        raise DomainError("Booking start time must be aligned to 30-minute intervals (e.g. :00 or :30).", status_code=400)
+    if ist_end.minute not in (0, 30) or ist_end.second != 0 or ist_end.microsecond != 0:
+        raise DomainError("Booking end time must be aligned to 30-minute intervals (e.g. :00 or :30).", status_code=400)
+
+    total_seconds = int((end_at - start_at).total_seconds())
+    duration_minutes = total_seconds // 60
+    if total_seconds % 60 != 0 or duration_minutes not in VALID_BOOKING_DURATIONS_MINUTES:
+        raise DomainError(
+            "Booking duration must be in 30-minute increments between 30 minutes and 3 hours (30, 60, 90, 120, 150, or 180 minutes).",
+            status_code=400,
+        )
 
 
 def place_hold(court_id_str: str, start_time_str: str, end_time_str: str, session_id: str) -> dict:
@@ -662,16 +687,17 @@ def _compute_booking_price(
     now: datetime,
 ) -> tuple[Decimal, Decimal, str, Optional[DiscountCode], dict]:
     pricing = PricingConfig.get_current()
-    duration_hours = max(1, int(round((end_at - start_at).total_seconds() / 3600)))
+    duration_minutes = int(round((end_at - start_at).total_seconds() / 60))
+    num_half_hours = max(1, duration_minutes // 30)
     peak_hours = [str(h) for h in (pricing.peak_hours or [])]
 
     base_price = Decimal('0.00')
-    for h in range(duration_hours):
-        hour_dt = timezone.localtime(start_at + timedelta(hours=h), VENUE_TZ)
-        hour_prefix = f"{hour_dt.hour:02d}"
+    for i in range(num_half_hours):
+        chunk_dt = timezone.localtime(start_at + timedelta(minutes=30 * i), VENUE_TZ)
+        hour_prefix = f"{chunk_dt.hour:02d}"
         is_peak = bool(pricing.is_peak_surge_active) and any(ph.startswith(hour_prefix) for ph in peak_hours)
-        unit_price = Decimal(pricing.peak_surge_price_per_hour) if is_peak else Decimal(court.price_per_hour)
-        base_price += unit_price
+        hourly_rate = Decimal(pricing.peak_surge_price_per_hour) if is_peak else Decimal(court.price_per_hour)
+        base_price += (hourly_rate / Decimal('2.00')).quantize(Decimal('0.01'))
 
     discount_amount = Decimal('0.00')
     applied_code = ''
@@ -810,6 +836,10 @@ def create_booking(params: dict, actor: Optional[ActorContext]) -> dict:
         staff_identifier = actor.actor_id if is_staff else ''
         ext_id = f"BK-{int(time.time() * 1000)}-{uuid.uuid4().hex[:4].upper()}"
 
+        diff_seconds = (end_at - start_at).total_seconds()
+        dur_mins = max(30, int(round(diff_seconds / 60)))
+        dur_hours = max(1, int(round(diff_seconds / 3600)))
+
         try:
             booking = Booking.objects.create(
                 external_id=ext_id,
@@ -823,6 +853,8 @@ def create_booking(params: dict, actor: Optional[ActorContext]) -> dict:
                 booking_date=timezone.localtime(start_at, VENUE_TZ).date(),
                 start_time=timezone.localtime(start_at, VENUE_TZ).time().replace(tzinfo=None, microsecond=0),
                 end_time=timezone.localtime(end_at, VENUE_TZ).time().replace(tzinfo=None, microsecond=0),
+                duration_minutes=dur_mins,
+                duration_hours=dur_hours,
                 source=source,
                 total_price=final_price,
                 discount_code=applied_code,

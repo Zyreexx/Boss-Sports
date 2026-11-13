@@ -35,6 +35,8 @@ class BookingSerializer(serializers.ModelSerializer):
             'start_time',
             'end_time',
             'duration_hours',
+            'duration_minutes',
+            'duration_display',
             'source',
             'total_price',
             'discount_code',
