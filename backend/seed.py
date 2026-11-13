@@ -31,8 +31,7 @@ def seed_structural_data():
         defaults={'is_closed': False, 'open_time': '06:00', 'close_time': '23:00'},
     )
 
-    if GalleryItem.objects.count() == 0:
-        gallery_data = [
+    gallery_data = [
             {
                 "external_id": "gal-1",
                 "title": "Kitchen Dink Rally & Net Play",
@@ -122,9 +121,15 @@ def seed_structural_data():
                 "order": 8,
             },
         ]
-        for g_data in gallery_data:
-            GalleryItem.objects.get_or_create(external_id=g_data["external_id"], defaults=g_data)
-        print(f"[CREATED] Seeded {len(gallery_data)} default gallery items")
+    for g_data in gallery_data:
+        item, created = GalleryItem.objects.get_or_create(external_id=g_data["external_id"], defaults=g_data)
+        if not created and g_data["external_id"] == "gal-2" and ("1794565470" in (item.media_url or "") or "/media/gallery" in (item.media_url or "")):
+            item.media_url = "/images/bullpadel-dark.jpg"
+            item.media_file = None
+            item.save()
+            print(f"[REPAIRED] Cleaned ephemeral media_url for {item.external_id}")
+        elif created:
+            print(f"[CREATED] Seeded missing gallery item: {item.external_id}")
 
     if DiscountCode.objects.count() == 0:
         valid_until = timezone.now() + timedelta(days=365)
