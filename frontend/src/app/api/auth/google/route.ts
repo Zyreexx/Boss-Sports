@@ -8,36 +8,52 @@ import {
   isLocalJsonFallbackDisabled,
   toProxyJsonResponse,
 } from "@/lib/backend/djangoClient";
+import {
+  encodeOAuthState,
+  getCanonicalAppUrl,
+  getGoogleOAuthCredentials,
+  getGoogleRedirectUri,
+} from "@/lib/auth/googleOAuth";
 
 export const dynamic = "force-dynamic";
 
-const GOOGLE_CLIENT_ID =
-  process.env.GOOGLE_CLIENT_ID ||
-  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-  "";
-
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
-
-function getRedirectUri(req: NextRequest): string {
-  const host = req.headers.get("host") || "localhost:3000";
-  const protocol = req.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-  return `${protocol}://${host}/api/auth/google/callback`;
-}
-
-// GET: Initiates standard Google OAuth 2.0 redirect
+// GET: Initiates standard Google OAuth 2.0 redirect with canonical redirect URI
 export async function GET(req: NextRequest) {
   try {
-    const redirectUri = getRedirectUri(req);
+    const { clientId } = getGoogleOAuthCredentials();
+    const appUrl = getCanonicalAppUrl(req);
+
+    if (!clientId) {
+      console.error("[Google OAuth] Missing GOOGLE_CLIENT_ID in environment configuration.");
+      return NextResponse.redirect(
+        `${appUrl}/?auth_error=${encodeURIComponent("Google OAuth is not configured on the server")}`
+      );
+    }
+
+    const redirectUri = getGoogleRedirectUri(req);
+    const returnTo = req.nextUrl.searchParams.get("returnTo") || "/";
+    const host = req.headers.get("host") || "";
+    const state = encodeOAuthState({ returnTo, sourceHost: host });
+
+    // Explicit log for preview deployments vs production
+    if (process.env.VERCEL === "1" && host && !host.includes("boss-sports.vercel.app")) {
+      console.log(
+        `[Google OAuth] Initiated from preview host (${host}). Using canonical registered redirect URI: ${redirectUri}`
+      );
+    }
+
     const googleAuthUrl = new URL("https://accounts.google.com/o/oauth2/auth");
-    googleAuthUrl.searchParams.set("client_id", GOOGLE_CLIENT_ID);
+    googleAuthUrl.searchParams.set("client_id", clientId);
     googleAuthUrl.searchParams.set("redirect_uri", redirectUri);
     googleAuthUrl.searchParams.set("response_type", "code");
     googleAuthUrl.searchParams.set("scope", "openid profile email");
     googleAuthUrl.searchParams.set("access_type", "offline");
     googleAuthUrl.searchParams.set("prompt", "select_account");
+    googleAuthUrl.searchParams.set("state", state);
 
     return NextResponse.redirect(googleAuthUrl.toString());
   } catch (err: any) {
+    console.error("[Google OAuth] Initiation error:", err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
@@ -76,22 +92,30 @@ export async function POST(req: NextRequest) {
       avatar = tokenInfo.picture;
       googleId = tokenInfo.sub;
     } else if (code) {
-      // 2. Exchange authorization code for tokens
-      const redirectUri = getRedirectUri(req);
+      const { clientId, clientSecret } = getGoogleOAuthCredentials();
+      if (!clientId || !clientSecret) {
+        return NextResponse.json(
+          { success: false, error: "Google OAuth credentials are not configured on the server." },
+          { status: 500 }
+        );
+      }
+
+      // 2. Exchange authorization code for tokens using identical canonical redirect URI
+      const redirectUri = getGoogleRedirectUri(req);
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           code,
-          client_id: GOOGLE_CLIENT_ID,
-          client_secret: GOOGLE_CLIENT_SECRET,
+          client_id: clientId,
+          client_secret: clientSecret,
           redirect_uri: redirectUri,
           grant_type: "authorization_code",
         }),
       });
 
       if (!tokenRes.ok) {
-        const errData = await tokenRes.json();
+        const errData = await tokenRes.json().catch(() => ({}));
         return NextResponse.json(
           { success: false, error: errData.error_description || "Google authorization code exchange failed." },
           { status: 400 }
@@ -180,4 +204,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

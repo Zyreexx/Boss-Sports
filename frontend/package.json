@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test src/__tests__/security/booking-security.test.ts src/__tests__/security/django-proxy.test.ts"
+    "test": "tsx --test src/__tests__/security/booking-security.test.ts src/__tests__/security/django-proxy.test.ts src/__tests__/security/google-oauth.test.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",

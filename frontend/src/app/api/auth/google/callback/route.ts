@@ -6,46 +6,47 @@ import {
   isDjangoBackendConfigured,
   isLocalJsonFallbackDisabled,
 } from "@/lib/backend/djangoClient";
+import {
+  decodeOAuthState,
+  getCanonicalAppUrl,
+  getGoogleOAuthCredentials,
+  getGoogleRedirectUri,
+} from "@/lib/auth/googleOAuth";
 
 export const dynamic = "force-dynamic";
 
-const GOOGLE_CLIENT_ID =
-  process.env.GOOGLE_CLIENT_ID ||
-  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-  "";
-
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
-
-function getRedirectUri(req: NextRequest): string {
-  const host = req.headers.get("host") || "localhost:3000";
-  const protocol = req.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-  return `${protocol}://${host}/api/auth/google/callback`;
-}
-
 export async function GET(req: NextRequest) {
+  const appUrl = getCanonicalAppUrl(req);
   try {
     const searchParams = req.nextUrl.searchParams;
     const code = searchParams.get("code");
     const error = searchParams.get("error");
-
-    const host = req.headers.get("host") || "localhost:3000";
-    const protocol = req.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-    const baseUrl = `${protocol}://${host}`;
+    const stateStr = searchParams.get("state");
+    const state = decodeOAuthState(stateStr);
 
     if (error || !code) {
-      return NextResponse.redirect(`${baseUrl}/?auth_error=${encodeURIComponent(error || "Access Denied")}`);
+      console.warn(`[Google OAuth Callback] Denied or missing code: ${error || "missing_code"}`);
+      return NextResponse.redirect(`${appUrl}/?auth_error=${encodeURIComponent(error || "Access Denied")}`);
     }
 
-    const redirectUri = getRedirectUri(req);
+    const { clientId, clientSecret } = getGoogleOAuthCredentials();
+    if (!clientId || !clientSecret) {
+      console.error("[Google OAuth Callback] Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET");
+      return NextResponse.redirect(
+        `${appUrl}/?auth_error=${encodeURIComponent("Google OAuth server configuration error")}`
+      );
+    }
 
-    // 1. Exchange code for tokens
+    const redirectUri = getGoogleRedirectUri(req);
+
+    // 1. Exchange code for tokens using the canonical redirect URI
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         code,
-        client_id: GOOGLE_CLIENT_ID,
-        client_secret: GOOGLE_CLIENT_SECRET,
+        client_id: clientId,
+        client_secret: clientSecret,
         redirect_uri: redirectUri,
         grant_type: "authorization_code",
       }),
@@ -53,8 +54,9 @@ export async function GET(req: NextRequest) {
 
     if (!tokenRes.ok) {
       const errData = await tokenRes.json().catch(() => ({}));
+      console.error("[Google OAuth Callback] Token exchange failed:", errData);
       return NextResponse.redirect(
-        `${baseUrl}/?auth_error=${encodeURIComponent(errData.error_description || "Token exchange failed")}`
+        `${appUrl}/?auth_error=${encodeURIComponent(errData.error_description || "Token exchange failed")}`
       );
     }
 
@@ -67,7 +69,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (!userinfoRes.ok) {
-      return NextResponse.redirect(`${baseUrl}/?auth_error=${encodeURIComponent("Failed to fetch Google profile")}`);
+      return NextResponse.redirect(`${appUrl}/?auth_error=${encodeURIComponent("Failed to fetch Google profile")}`);
     }
 
     const profile = await userinfoRes.json();
@@ -85,13 +87,13 @@ export async function GET(req: NextRequest) {
       });
       if (!upstream.ok || !upstream.data?.user) {
         return NextResponse.redirect(
-          `${baseUrl}/?auth_error=${encodeURIComponent(upstream.data?.error || "Backend sign-in unavailable")}`
+          `${appUrl}/?auth_error=${encodeURIComponent(upstream.data?.error || "Backend sign-in unavailable")}`
         );
       }
       userResult = { user: upstream.data.user, redirectUrl: upstream.data.redirectUrl || "/profile" };
     } else if (isLocalJsonFallbackDisabled()) {
       return NextResponse.redirect(
-        `${baseUrl}/?auth_error=${encodeURIComponent("Backend persistence service is unavailable")}`
+        `${appUrl}/?auth_error=${encodeURIComponent("Backend persistence service is unavailable")}`
       );
     } else {
       userResult = authDb.findOrCreateGoogleUser({
@@ -102,8 +104,10 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 4. Redirect with session cookie
-    const targetUrl = new URL(userResult.redirectUrl, baseUrl);
+    // 4. Redirect with session cookie to intended destination
+    const destinationPath =
+      state?.returnTo && state.returnTo !== "/" ? state.returnTo : userResult.redirectUrl || "/";
+    const targetUrl = new URL(destinationPath, appUrl);
     targetUrl.searchParams.set("auth_success", "true");
 
     const response = NextResponse.redirect(targetUrl.toString());
@@ -113,10 +117,7 @@ export async function GET(req: NextRequest) {
 
     return response;
   } catch (err: any) {
-    console.error("Google callback error:", err);
-    const host = req.headers.get("host") || "localhost:3000";
-    const protocol = req.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-    return NextResponse.redirect(`${protocol}://${host}/?auth_error=${encodeURIComponent(err.message)}`);
+    console.error("[Google OAuth Callback] Server error:", err);
+    return NextResponse.redirect(`${appUrl}/?auth_error=${encodeURIComponent(err.message || "OAuth Callback Error")}`);
   }
 }
-

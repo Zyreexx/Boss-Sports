@@ -128,8 +128,9 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
   const handleGoogleOAuthRedirect = () => {
     setGoogleLoading(true);
-    // Redirects directly to the Google OAuth2 flow endpoint
-    window.location.href = "/api/auth/google";
+    // Redirects directly to the Google OAuth2 flow endpoint with returnTo preservation
+    const returnTo = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/";
+    window.location.href = `/api/auth/google?returnTo=${encodeURIComponent(returnTo)}`;
   };
 
   const handleLogin = async (idVal?: string, passVal?: string) => {
