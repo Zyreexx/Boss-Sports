@@ -164,12 +164,12 @@ export const defaultGalleryItems: GalleryItem[] = [
   {
     id: "gal-2",
     type: "image",
-    title: "Official Pro Carbon Paddles",
+    title: "Official Pro Selkirk Carbon Paddles",
     category: "gear",
     tag: "Pro Gear",
-    src: "/images/gallery-grid-full.jpg",
+    src: "/images/bullpadel-dark.jpg",
     aspect: "square",
-    caption: "Carbon fiber paddles and court balls available at reception.",
+    caption: "USAPA tournament-grade carbon fiber paddles and court balls available at reception.",
   },
   {
     id: "gal-3",

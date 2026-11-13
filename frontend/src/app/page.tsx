@@ -450,8 +450,7 @@ export default function HomePage() {
             alt="Hero court athlete in motion"
             fill
             priority
-            className="object-cover object-center md:object-[75%_center] transition-transform duration-1000 scale-100 hover:scale-105"
-          />
+            className="object-cover object-center md:object-[75%_center] transition-transform duration-1000 scale-100 hover:scale-105"/>
           {/* Subtle cinematic overlays for contrast & legibility */}
           <div className="absolute inset-0 bg-gradient-to-r from-[#0d1a2c]/95 via-[#0d1a2c]/80 md:via-[#0d1a2c]/55 to-[#0d1a2c]/40 md:to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-t from-[#0d1a2c] via-transparent to-[#0d1a2c]/65" />
