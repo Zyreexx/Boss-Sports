@@ -44,6 +44,66 @@ const PRESET_ASSETS: Array<{ label: string; type: "image" | "video"; src: string
   { label: "Arena Stadium Lights", type: "image", src: "/images/court-wide.jpg" },
 ];
 
+function SafeGalleryImage({
+  src,
+  alt,
+  fill = false,
+  className = "",
+  fallbackSrc = "/images/bullpadel-dark.jpg",
+}: {
+  src: string;
+  alt: string;
+  fill?: boolean;
+  className?: string;
+  fallbackSrc?: string;
+}) {
+  const [currentSrc, setCurrentSrc] = useState(src);
+  const [errorCount, setErrorCount] = useState(0);
+
+  useEffect(() => {
+    if (
+      !src ||
+      src.includes("1794565470-296fa30a.jpg") ||
+      src.includes("AABkmLeciCopvNRvdpJiq0IIsVnL3iu388iQQEa7EgeQZ32ne2_")
+    ) {
+      setCurrentSrc(fallbackSrc);
+      setErrorCount(1);
+    } else {
+      setCurrentSrc(src);
+      setErrorCount(0);
+    }
+  }, [src, fallbackSrc]);
+
+  const handleError = () => {
+    if (errorCount === 0 && fallbackSrc && currentSrc !== fallbackSrc) {
+      setErrorCount(1);
+      setCurrentSrc(fallbackSrc);
+    } else {
+      setErrorCount(2);
+    }
+  };
+
+  if (errorCount >= 2) {
+    return (
+      <div className="w-full h-full min-h-[160px] bg-neutral-900 flex flex-col items-center justify-center p-4 text-center">
+        <Camera className="w-8 h-8 text-white/30 mb-2" />
+        <span className="text-[11px] text-white/50 line-clamp-1">{alt}</span>
+        <span className="text-[10px] text-amber-400/80 mt-1">Image unavailable</span>
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      src={currentSrc}
+      alt={alt}
+      fill={fill}
+      className={className}
+      onError={handleError}
+    />
+  );
+}
+
 export default function GalleryManager({
   userRole = "STAFF",
 }: {
@@ -575,11 +635,16 @@ export default function GalleryManager({
           >
             {/* Visual Thumbnail (No Tags, No Round Edges) */}
             <div className="relative h-48 w-full bg-neutral-900 overflow-hidden rounded-none">
-              <Image
+              <SafeGalleryImage
                 src={item.src}
                 alt={item.title}
                 fill
                 className="object-cover group-hover:scale-105 transition-transform duration-500"
+                fallbackSrc={
+                  item.category === "gear" || item.title.toLowerCase().includes("paddle")
+                    ? "/images/bullpadel-dark.jpg"
+                    : "/images/hero-player.jpg"
+                }
               />
 
               {item.type === "video" && (

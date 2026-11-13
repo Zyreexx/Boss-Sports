@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
         path: "/api/gallery-items/",
         method: "GET",
         actor,
+        timeoutMs: 25_000,
       });
       return toProxyJsonResponse(upstream);
     }

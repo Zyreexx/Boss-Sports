@@ -160,10 +160,15 @@ export default function ArenaGallery({ standardRate = 400 }: { standardRate?: nu
               item.title.toLowerCase().includes("selkirk") ||
               item.title.toLowerCase().includes("official pro")
             ) {
+              const isBrokenMediaUrl =
+                !item.src ||
+                item.src === "" ||
+                item.src.includes("1794565470-296fa30a.jpg") ||
+                item.src.includes("AABkmLeciCopvNRvdpJiq0IIsVnL3iu388iQQEa7EgeQZ32ne2_");
               return {
                 ...item,
                 title: "Official Pro Selkirk Carbon Paddles",
-                src: item.src && item.src !== "" ? item.src : "/images/bullpadel-dark.jpg",
+                src: isBrokenMediaUrl ? "/images/bullpadel-dark.jpg" : item.src,
               };
             }
             return item;
