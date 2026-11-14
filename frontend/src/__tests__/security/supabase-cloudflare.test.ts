@@ -13,23 +13,24 @@ import {
 } from "../../lib/supabase/supabaseDb";
 
 describe("Cloudflare & Supabase Migration Integrity Suite", () => {
-  it("Scenario 1: Cloudflare Pages configuration files exist and specify nodejs_compat", () => {
+  it("Scenario 1: Cloudflare Workers vinext configuration is configured and old Pages config removed", () => {
     const wranglerJsoncPath = path.resolve(process.cwd(), "wrangler.jsonc");
     const wranglerTomlPath = path.resolve(process.cwd(), "wrangler.toml");
+    const viteConfigPath = path.resolve(process.cwd(), "vite.config.ts");
 
-    assert.ok(fs.existsSync(wranglerJsoncPath) || fs.existsSync(wranglerTomlPath), "Wrangler config must exist");
+    assert.ok(fs.existsSync(wranglerJsoncPath), "wrangler.jsonc must exist");
+    assert.ok(!fs.existsSync(wranglerTomlPath), "wrangler.toml should be removed (old Pages config)");
+    assert.ok(fs.existsSync(viteConfigPath), "vite.config.ts must exist for vinext");
 
-    if (fs.existsSync(wranglerJsoncPath)) {
-      const content = fs.readFileSync(wranglerJsoncPath, "utf-8");
-      assert.ok(content.includes("nodejs_compat"), "wrangler.jsonc must include nodejs_compat flag");
-      assert.ok(content.includes(".vercel/output/static"), "wrangler.jsonc must point to .vercel/output/static");
-    }
+    const wranglerContent = fs.readFileSync(wranglerJsoncPath, "utf-8");
+    assert.ok(wranglerContent.includes("nodejs_compat"), "wrangler.jsonc must include nodejs_compat flag");
+    assert.ok(wranglerContent.includes("vinext/server/fetch-handler"), "wrangler.jsonc must have vinext fetch-handler as main");
+    assert.ok(wranglerContent.includes("dist/client"), "wrangler.jsonc must configure dist/client assets");
+    assert.equal(wranglerContent.includes("pages_build_output_dir"), false, "pages_build_output_dir must be removed");
 
-    if (fs.existsSync(wranglerTomlPath)) {
-      const content = fs.readFileSync(wranglerTomlPath, "utf-8");
-      assert.ok(content.includes("nodejs_compat"), "wrangler.toml must include nodejs_compat");
-      assert.ok(content.includes(".vercel/output/static"), "wrangler.toml must point to .vercel/output/static");
-    }
+    const viteContent = fs.readFileSync(viteConfigPath, "utf-8");
+    assert.ok(viteContent.includes("vinext"), "vite.config.ts must include vinext plugin");
+    assert.ok(viteContent.includes("@cloudflare/vite-plugin"), "vite.config.ts must include @cloudflare/vite-plugin");
   });
 
   it("Scenario 2: Supabase schema migration file exists with complete DDL and storage bucket", () => {
