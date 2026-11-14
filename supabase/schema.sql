@@ -140,7 +140,7 @@ CREATE TABLE IF NOT EXISTS public.discounts (
 
 -- Seed initial promo code
 INSERT INTO public.discounts (id, code, type, value, valid_to, is_active, usage_count)
-VALUES ('disc-boss10', 'BOSS10', 'PERCENT', 10.00, now() + interval '1 year', true, 0)
+VALUES ('disc-boss10', 'BOSS10', 'PERCENT', 10.00, '2028-12-31 23:59:59+00'::timestamptz, true, 0)
 ON CONFLICT (code) DO NOTHING;
 
 -- 8. AUDIT LOGS TABLE
