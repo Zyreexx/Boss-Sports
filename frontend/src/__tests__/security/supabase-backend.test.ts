@@ -10,6 +10,7 @@ import {
   rowToPricingConfig,
   rowToAppUser,
   hasIntervalOverlap,
+  supabaseDb,
 } from "../../lib/supabase/supabaseDb";
 
 describe("Supabase Backend Integration Suite", () => {
@@ -149,5 +150,139 @@ describe("Supabase Backend Integration Suite", () => {
       false,
       "Adjacent contiguous intervals must not conflict"
     );
+  });
+
+  it("Scenario 6: Financial report revenue reconciliation accurately matches authoritative bookings", async () => {
+    const originalPrune = supabaseDb.pruneExpired;
+    const originalGetAll = supabaseDb.getAllBookings;
+
+    try {
+      supabaseDb.pruneExpired = async () => {};
+      supabaseDb.getAllBookings = async () => [
+        {
+          id: "bk-1",
+          courtId: "court-1",
+          courtName: "Court 1",
+          startTime: "2028-06-15T10:00:00.000Z",
+          endTime: "2028-06-15T11:00:00.000Z",
+          customerName: "Alice Paid",
+          customerPhone: "9876543210",
+          source: "ONLINE",
+          status: "CONFIRMED",
+          paymentStatus: "PAID_ONLINE",
+          totalPrice: 550,
+          createdAt: "2028-06-15T09:00:00.000Z",
+          updatedAt: "2028-06-15T09:00:00.000Z",
+        },
+        {
+          id: "bk-2",
+          courtId: "court-2",
+          courtName: "Court 2",
+          startTime: "2028-06-15T11:00:00.000Z",
+          endTime: "2028-06-15T12:00:00.000Z",
+          customerName: "Bob Venue",
+          customerPhone: "9876543211",
+          source: "ONLINE",
+          status: "CONFIRMED",
+          paymentStatus: "PAY_AT_VENUE",
+          totalPrice: 550,
+          createdAt: "2028-06-15T09:30:00.000Z",
+          updatedAt: "2028-06-15T09:30:00.000Z",
+        },
+      ];
+
+      const report = await supabaseDb.getPickleballReport();
+
+      assert.equal(report.realizedRevenue, 550, "Realized collected revenue must be ₹550");
+      assert.equal(report.pendingVenuePayment, 550, "Pending venue payments must be ₹550");
+      assert.equal(report.grossBookedValue, 1100, "Gross booked value must be ₹1,100");
+      assert.equal(report.onlineRevenue + report.upiCounterRevenue, 550, "UPI and online intake must be ₹550");
+      assert.equal(report.cashRevenue, 0, "Cash intake must be ₹0");
+      assert.equal(report.totalBookings, 2, "Total bookings must be 2");
+    } finally {
+      supabaseDb.pruneExpired = originalPrune;
+      supabaseDb.getAllBookings = originalGetAll;
+    }
+  });
+
+  it("Scenario 7: Excludes cancelled and refunded bookings while counting PAID and PENDING correctly", async () => {
+    const originalPrune = supabaseDb.pruneExpired;
+    const originalGetAll = supabaseDb.getAllBookings;
+
+    try {
+      supabaseDb.pruneExpired = async () => {};
+      supabaseDb.getAllBookings = async () => [
+        {
+          id: "bk-paid-legacy",
+          courtId: "court-1",
+          courtName: "Court 1",
+          startTime: "2028-06-15T10:00:00.000Z",
+          endTime: "2028-06-15T11:00:00.000Z",
+          customerName: "Charlie Paid",
+          customerPhone: "9876543212",
+          source: "ONLINE",
+          status: "CONFIRMED",
+          paymentStatus: "PAID",
+          totalPrice: 550,
+          createdAt: "2028-06-15T09:00:00.000Z",
+          updatedAt: "2028-06-15T09:00:00.000Z",
+        },
+        {
+          id: "bk-pending-desk",
+          courtId: "court-2",
+          courtName: "Court 2",
+          startTime: "2028-06-15T11:00:00.000Z",
+          endTime: "2028-06-15T12:00:00.000Z",
+          customerName: "Dana Pending",
+          customerPhone: "9876543213",
+          source: "PHONE",
+          status: "CONFIRMED",
+          paymentStatus: "PENDING",
+          totalPrice: 550,
+          createdAt: "2028-06-15T09:30:00.000Z",
+          updatedAt: "2028-06-15T09:30:00.000Z",
+        },
+        {
+          id: "bk-cancelled",
+          courtId: "court-1",
+          courtName: "Court 1",
+          startTime: "2028-06-15T14:00:00.000Z",
+          endTime: "2028-06-15T15:00:00.000Z",
+          customerName: "Eve Cancelled",
+          customerPhone: "9876543214",
+          source: "ONLINE",
+          status: "CANCELLED",
+          paymentStatus: "PAID_ONLINE",
+          totalPrice: 550,
+          createdAt: "2028-06-15T09:00:00.000Z",
+          updatedAt: "2028-06-15T09:00:00.000Z",
+        },
+        {
+          id: "bk-refunded",
+          courtId: "court-2",
+          courtName: "Court 2",
+          startTime: "2028-06-15T16:00:00.000Z",
+          endTime: "2028-06-15T17:00:00.000Z",
+          customerName: "Frank Refunded",
+          customerPhone: "9876543215",
+          source: "ONLINE",
+          status: "REFUNDED",
+          paymentStatus: "REFUNDED",
+          totalPrice: 550,
+          createdAt: "2028-06-15T09:00:00.000Z",
+          updatedAt: "2028-06-15T09:00:00.000Z",
+        },
+      ];
+
+      const report = await supabaseDb.getPickleballReport();
+
+      assert.equal(report.realizedRevenue, 550, "Only non-cancelled/non-refunded collected count");
+      assert.equal(report.pendingVenuePayment, 550, "Only non-cancelled/non-refunded pending count");
+      assert.equal(report.grossBookedValue, 1100, "Gross value must exclude cancelled and refunded");
+      assert.equal(report.totalBookings, 2, "Active bookings count must exclude cancelled and refunded");
+    } finally {
+      supabaseDb.pruneExpired = originalPrune;
+      supabaseDb.getAllBookings = originalGetAll;
+    }
   });
 });

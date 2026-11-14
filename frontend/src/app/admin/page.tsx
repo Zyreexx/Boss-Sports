@@ -158,14 +158,15 @@ export default function OwnerAdminPage() {
         setReportError("Your session has expired. Please sign in again.");
         return;
       }
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
         setReportData(data);
+        setReportError(null);
       } else {
-        setReportError(data.error || "Unable to fetch financial report.");
+        setReportError(data.error || `Server error (${res.status}): Unable to fetch financial report.`);
       }
-    } catch {
-      setReportError("Network error fetching audit reports.");
+    } catch (err: any) {
+      setReportError(err?.message || "Network error fetching audit reports.");
     } finally {
       setReportLoading(false);
     }

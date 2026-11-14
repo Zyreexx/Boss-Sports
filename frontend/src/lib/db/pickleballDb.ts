@@ -1639,43 +1639,73 @@ class PickleballDatabaseService {
     const state = this.load();
     this.pruneExpiredHolds(state);
     this.pruneExpiredPendingBookings(state);
-    const validBookings = state.bookings.filter((b) => b.status !== "CANCELLED");
-    const confirmedBookings = validBookings.filter((b) => b.status === "CONFIRMED" || b.status === "COMPLETED");
-    const pendingVerifications = validBookings.filter((b) => b.status === "PENDING_VERIFICATION");
 
-    const onlineRevenue = confirmedBookings
-      .filter((b) => b.paymentStatus === "PAID_ONLINE")
-      .reduce((sum, b) => sum + Number(b.totalPrice), 0);
-    const cashRevenue = confirmedBookings
-      .filter((b) => b.paymentStatus === "CASH_COUNTER")
-      .reduce((sum, b) => sum + Number(b.totalPrice), 0);
-    const upiCounterRevenue = confirmedBookings
-      .filter((b) => b.paymentStatus === "UPI_COUNTER")
-      .reduce((sum, b) => sum + Number(b.totalPrice), 0);
+    // Use the same authoritative booking data as the schedule.
+    // Exclude cancelled and refunded bookings.
+    const isExcluded = (b: Booking) => {
+      const status = (b.status || "").trim().toUpperCase();
+      const paymentStatus = (b.paymentStatus || "").trim().toUpperCase();
+      return status === "CANCELLED" || status === "REFUNDED" || paymentStatus === "REFUNDED";
+    };
+
+    const activeBookings = state.bookings.filter((b) => !isExcluded(b));
+    const pendingVerifications = activeBookings.filter(
+      (b) => (b.status || "").trim().toUpperCase() === "PENDING_VERIFICATION"
+    );
+
+    // Count PAID_ONLINE, CASH_COUNTER, UPI_COUNTER, and PAID as collected
+    const isCollected = (b: Booking) => {
+      const ps = (b.paymentStatus || "").trim().toUpperCase();
+      return ps === "PAID_ONLINE" || ps === "CASH_COUNTER" || ps === "UPI_COUNTER" || ps === "PAID";
+    };
+
+    // Count PAY_AT_VENUE and PENDING as pending
+    const isPending = (b: Booking) => {
+      const ps = (b.paymentStatus || "").trim().toUpperCase();
+      return ps === "PAY_AT_VENUE" || ps === "PENDING";
+    };
+
+    const onlineRevenue = activeBookings
+      .filter((b) => {
+        const ps = (b.paymentStatus || "").trim().toUpperCase();
+        return ps === "PAID_ONLINE" || ps === "PAID";
+      })
+      .reduce((sum, b) => sum + Number(b.totalPrice || 0), 0);
+
+    const cashRevenue = activeBookings
+      .filter((b) => (b.paymentStatus || "").trim().toUpperCase() === "CASH_COUNTER")
+      .reduce((sum, b) => sum + Number(b.totalPrice || 0), 0);
+
+    const upiCounterRevenue = activeBookings
+      .filter((b) => (b.paymentStatus || "").trim().toUpperCase() === "UPI_COUNTER")
+      .reduce((sum, b) => sum + Number(b.totalPrice || 0), 0);
 
     // Strictly count realized collected payments towards venue revenue
     const realizedRevenue = onlineRevenue + cashRevenue + upiCounterRevenue;
 
     // Pending payments still to be collected at reception desk
-    const pendingVenuePayment = confirmedBookings
-      .filter((b) => b.paymentStatus === "PAY_AT_VENUE" || b.paymentStatus === "PENDING")
-      .reduce((sum, b) => sum + Number(b.totalPrice), 0);
+    const pendingVenuePayment = activeBookings
+      .filter((b) => isPending(b) || (!isCollected(b) && (b.paymentStatus || "").trim().toUpperCase() !== "REFUNDED"))
+      .reduce((sum, b) => sum + Number(b.totalPrice || 0), 0);
 
-    const pendingVerificationValue = pendingVerifications.reduce((sum, b) => sum + Number(b.totalPrice), 0);
+    const pendingVerificationValue = pendingVerifications.reduce(
+      (sum, b) => sum + Number(b.totalPrice || 0),
+      0
+    );
 
-    // Total booked value (realized + desk pending) - excludes unapproved pending verifications
-    const grossBookedValue = confirmedBookings.reduce((sum, b) => sum + Number(b.totalPrice), 0);
+    // Total booked value (realized + desk pending)
+    const grossBookedValue = realizedRevenue + pendingVenuePayment;
 
     const channelBreakdown = {
-      online: validBookings.filter((b) => b.source === "ONLINE").length,
-      phone: validBookings.filter((b) => b.source === "PHONE").length,
-      walkin: validBookings.filter((b) => b.source === "WALKIN").length,
+      online: activeBookings.filter((b) => (b.source || "").toUpperCase() === "ONLINE").length,
+      phone: activeBookings.filter((b) => (b.source || "").toUpperCase() === "PHONE").length,
+      walkin: activeBookings.filter((b) => (b.source || "").toUpperCase() === "WALKIN").length,
     };
 
     return {
       database: "PICKLEBALL_DATABASE",
-      totalBookings: confirmedBookings.length,
-      confirmedBookings: confirmedBookings.length,
+      totalBookings: activeBookings.length,
+      confirmedBookings: activeBookings.length,
       pendingVerificationsCount: pendingVerifications.length,
       pendingVerificationValue,
       realizedRevenue,

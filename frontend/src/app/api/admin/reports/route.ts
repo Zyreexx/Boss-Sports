@@ -42,13 +42,13 @@ export async function GET(req: NextRequest) {
           summary: {
             grandTotalRevenue: s.realizedRevenue,
             realizedRevenue: s.realizedRevenue,
-            grossBookedValue: s.realizedRevenue + s.pendingVenuePayment,
+            grossBookedValue: s.grossBookedValue ?? (s.realizedRevenue + s.pendingVenuePayment),
             pendingVenuePayment: s.pendingVenuePayment,
             totalCashReconciliation: s.cashRevenue,
             totalUpiReconciliation: s.upiCounterRevenue,
             totalOnlineReconciliation: s.onlineRevenue,
-            totalBookings: s.totalConfirmedBookings,
-            confirmedBookings: s.totalConfirmedBookings,
+            totalBookings: report.totalBookings ?? s.totalConfirmedBookings,
+            confirmedBookings: report.confirmedBookings ?? s.totalConfirmedBookings,
             totalPendingVerifications: s.totalPendingVerifications,
             pendingVerificationsCount: s.pendingVerificationsCount ?? s.totalPendingVerifications ?? 0,
             pendingVerificationValue: report.pendingVerificationValue ?? 0,
@@ -72,8 +72,8 @@ export async function GET(req: NextRequest) {
     const pickleball = pickleballDb.getPickleballReport();
 
     const realizedRevenue = pickleball.realizedRevenue ?? pickleball.totalRevenue ?? 0;
-    const grossBookedValue = pickleball.grossBookedValue ?? 0;
     const pendingVenuePayment = pickleball.pendingVenuePayment ?? 0;
+    const grossBookedValue = pickleball.grossBookedValue ?? (realizedRevenue + pendingVenuePayment);
     const totalCashReconciliation = pickleball.cashRevenue || 0;
     const totalUpiReconciliation = pickleball.upiCounterRevenue || 0;
     const totalOnlineReconciliation = pickleball.onlineRevenue || 0;
@@ -91,7 +91,9 @@ export async function GET(req: NextRequest) {
           totalUpiReconciliation,
           totalOnlineReconciliation,
           totalBookings: pickleball.totalBookings || 0,
-          confirmedBookings: pickleball.totalBookings || 0,
+          confirmedBookings: pickleball.confirmedBookings || pickleball.totalBookings || 0,
+          pendingVerificationsCount: pickleball.pendingVerificationsCount || 0,
+          pendingVerificationValue: pickleball.pendingVerificationValue || 0,
           activeHolds: pickleball.activeHoldsCount || 0,
         },
         pickleballDatabase: pickleball,
