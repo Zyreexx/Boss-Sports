@@ -22,14 +22,21 @@ import {
   ChevronRight,
   Lock,
   FileText,
+  ShieldCheck,
+  Eye,
+  X,
+  QrCode,
+  Upload,
 } from "lucide-react";
 import LoginModal from "@/components/LoginModal";
 import CourtManager from "@/components/CourtManager";
 import GalleryManager from "@/components/GalleryManager";
+import PendingVerificationsView from "@/components/PendingVerificationsView";
 import { formatBookingDuration, formatDurationLabel, SUPPORTED_DURATIONS_MINUTES } from "@/lib/utils/duration";
 
 export default function StaffPanelPage() {
-  const [activeTab, setActiveTab] = useState<"pickleball" | "courts" | "gallery" | "schedule" | "lookup">("pickleball");
+  const [activeTab, setActiveTab] = useState<"pickleball" | "courts" | "gallery" | "schedule" | "lookup" | "verifications">("pickleball");
+  const [pendingCount, setPendingCount] = useState<number>(0);
 
   // --- Auth State ---
   const [currentUser, setCurrentUser] = useState<any | null>(null);
@@ -53,7 +60,7 @@ export default function StaffPanelPage() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [bookingSource, setBookingSource] = useState<"WALKIN" | "PHONE">("WALKIN");
-  const [paymentStatus, setPaymentStatus] = useState<"CASH_COUNTER" | "UPI_COUNTER" | "PAY_AT_VENUE">("CASH_COUNTER");
+  const [paymentStatus, setPaymentStatus] = useState<"CASH_COUNTER" | "UPI_COUNTER" | "PAY_AT_VENUE" | "PAID_ONLINE">("CASH_COUNTER");
   const [bookLoading, setBookLoading] = useState(false);
   const [bookMessage, setBookMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -86,6 +93,16 @@ export default function StaffPanelPage() {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
   const [paymentUpdatingId, setPaymentUpdatingId] = useState<string | null>(null);
+
+  // --- Photo Preview, Rejection & Verification State ---
+  const [photoModalImage, setPhotoModalImage] = useState<string | null>(null);
+  const [photoModalBooking, setPhotoModalBooking] = useState<any | null>(null);
+  const [rejectModalBooking, setRejectModalBooking] = useState<any | null>(null);
+  const [rejectionReasonText, setRejectionReasonText] = useState<string>("");
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [scheduleFilter, setScheduleFilter] = useState<"ALL" | "PENDING" | "CONFIRMED">("ALL");
+  const [scheduleCourtFilter, setScheduleCourtFilter] = useState<string>("ALL");
+  const [showAllUpcoming, setShowAllUpcoming] = useState<boolean>(false);
 
   const isStaffAuthorized = Boolean(
     currentUser && (currentUser.role === "OWNER" || currentUser.role === "EMPLOYEE")
@@ -193,11 +210,18 @@ export default function StaffPanelPage() {
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.success && data.bookings) {
         setBackendError(null);
+        const pending = data.bookings.filter((b: any) => b.status === "PENDING_VERIFICATION");
+        setPendingCount(pending.length);
         const nowMs = Date.now() - 3600000;
         const upcoming = data.bookings
-          .filter((b: any) => b.status !== "CANCELLED" && new Date(b.endTime).getTime() >= nowMs)
-          .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-        setUpcomingBookings(upcoming.length > 0 ? upcoming : data.bookings.filter((b: any) => b.status !== "CANCELLED").slice(0, 6));
+          .filter((b: any) => b.status !== "CANCELLED" && (b.status === "PENDING_VERIFICATION" || new Date(b.endTime).getTime() >= nowMs))
+          .sort((a: any, b: any) => {
+            // Prioritize pending verifications at the top
+            if (a.status === "PENDING_VERIFICATION" && b.status !== "PENDING_VERIFICATION") return -1;
+            if (b.status === "PENDING_VERIFICATION" && a.status !== "PENDING_VERIFICATION") return 1;
+            return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+          });
+        setUpcomingBookings(upcoming.length > 0 ? upcoming : data.bookings.filter((b: any) => b.status !== "CANCELLED"));
       } else if (!res.ok) {
         setBackendError(data.error || "Unable to load live booking schedule from backend.");
       }
@@ -462,6 +486,107 @@ export default function StaffPanelPage() {
     }
   };
 
+  // Approve UPI Manual Payment
+  const handleApprovePayment = async (bookingId: string) => {
+    if (!confirm("Confirm and approve this UPI payment? The booking will be marked CONFIRMED and count toward revenue.")) {
+      return;
+    }
+    setVerifyingId(bookingId);
+    try {
+      const res = await fetch("/api/pickleball/verify-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingId,
+          action: "APPROVE",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert("✓ Payment verified & booking confirmed! Slot is secured.");
+        if (photoModalBooking?.id === bookingId) {
+          setPhotoModalImage(null);
+          setPhotoModalBooking(null);
+        }
+        fetchStaffUpcomingSchedule();
+        fetchCourts();
+      } else {
+        alert(data.error || "Failed to approve payment.");
+      }
+    } catch {
+      alert("Network error approving payment.");
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
+  // Reject UPI Manual Payment
+  const handleRejectPaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rejectModalBooking) return;
+
+    const reason = rejectionReasonText.trim() || "Payment not verified / mismatched in bank statement";
+    setVerifyingId(rejectModalBooking.id);
+    try {
+      const res = await fetch("/api/pickleball/verify-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingId: rejectModalBooking.id,
+          action: "REJECT",
+          rejectionReason: reason,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert("✓ Payment rejected. Slot has been released and customer notified.");
+        setRejectModalBooking(null);
+        setRejectionReasonText("");
+        if (photoModalBooking?.id === rejectModalBooking.id) {
+          setPhotoModalImage(null);
+          setPhotoModalBooking(null);
+        }
+        fetchStaffUpcomingSchedule();
+        fetchCourts();
+      } else {
+        alert(data.error || "Failed to reject payment.");
+      }
+    } catch {
+      alert("Network error rejecting payment.");
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
+  const openPhotoModal = (booking: any) => {
+    if (booking.paymentScreenshotUrl) {
+      setPhotoModalImage(booking.paymentScreenshotUrl);
+      setPhotoModalBooking(booking);
+    }
+  };
+
+  const openRejectModal = (booking: any) => {
+    setRejectModalBooking(booking);
+    setRejectionReasonText("Payment not received in bank account");
+  };
+
+  // Keyboard navigation for modals
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (photoModalImage) {
+          setPhotoModalImage(null);
+          setPhotoModalBooking(null);
+        }
+        if (rejectModalBooking) {
+          setRejectModalBooking(null);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [photoModalImage, rejectModalBooking]);
+
   return (
     <div className="min-h-screen bg-[#070b10] text-[#f0f4f8] antialiased selection:bg-[#c7f711] selection:text-black">
       {/* Top Header / Staff Bar */}
@@ -716,6 +841,24 @@ export default function StaffPanelPage() {
               <Search className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>Phone Lookup &amp; Cancel</span>
             </button>
+
+            <button
+              type="button"
+              aria-pressed={activeTab === "verifications"}
+              onClick={() => setActiveTab("verifications")}
+              className={`flex items-center gap-2 px-4 py-2.5 min-h-[42px] w-full sm:w-auto justify-start sm:justify-center rounded-xl font-semibold text-xs tracking-wide transition-all relative ${activeTab === "verifications"
+                  ? "bg-[#c7f711] text-black shadow-lg shadow-[#c7f711]/20 font-bold"
+                  : "text-white/70 hover:text-white hover:bg-white/5"
+                }`}
+            >
+              <ShieldCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span>UPI Verifications</span>
+              {pendingCount > 0 && (
+                <span className="bg-amber-400 text-black text-[10px] font-extrabold px-1.5 py-0.5 rounded-full ml-1">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
           </div>
 
           <div className="text-xs text-white/50 flex items-center gap-2 shrink-0">
@@ -730,7 +873,7 @@ export default function StaffPanelPage() {
         {activeTab === "pickleball" && (
           <div className="space-y-6">
             {/* Default Live Upcoming Court Schedule Board for Staff Desk */}
-            <div className="bg-[#0d141f] border border-white/10 rounded-3xl p-5 sm:p-8 space-y-4">
+            <div className="bg-[#0d141f] border border-white/10 rounded-3xl p-5 sm:p-8 space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
                 <div>
                   <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -738,17 +881,22 @@ export default function StaffPanelPage() {
                     <span>Live Upcoming Court Schedule &amp; Player Queue</span>
                   </h2>
                   <p className="text-xs text-white/60 mt-0.5">
-                    Real-time feed of confirmed reservations across Court 1, Court 2, and Court 3.
+                    Real-time feed of confirmed reservations and pending UPI submissions across Court 1, Court 2, and Court 3.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs bg-[#c7f711]/20 text-[#c7f711] border border-[#c7f711]/30 px-3 py-1 rounded-full font-bold">
                     {upcomingBookings.length} Active Games Scheduled
                   </span>
+                  {pendingCount > 0 && (
+                    <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-full font-bold flex items-center gap-1.5 animate-pulse">
+                      <span>⚠️</span> {pendingCount} Pending Verification
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={fetchStaffUpcomingSchedule}
-                    className="p-2 min-w-[40px] min-h-[40px] inline-flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white"
+                    className="p-2 min-w-[40px] min-h-[40px] inline-flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white transition-all"
                     title="Refresh Schedule"
                     aria-label="Refresh Schedule"
                   >
@@ -757,95 +905,408 @@ export default function StaffPanelPage() {
                 </div>
               </div>
 
+              {/* Status & Court Filter Tabs */}
+              <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-white/50 text-[11px] font-semibold mr-1">Status:</span>
+                  <button
+                    type="button"
+                    onClick={() => setScheduleFilter("ALL")}
+                    className={`px-3 py-1.5 rounded-lg border font-semibold transition-all ${
+                      scheduleFilter === "ALL"
+                        ? "bg-white text-black border-white font-bold"
+                        : "bg-white/5 text-white/70 border-white/10 hover:bg-white/10"
+                    }`}
+                  >
+                    All ({upcomingBookings.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScheduleFilter("PENDING")}
+                    className={`px-3 py-1.5 rounded-lg border font-semibold transition-all flex items-center gap-1.5 ${
+                      scheduleFilter === "PENDING"
+                        ? "bg-amber-400 text-black border-amber-400 font-bold"
+                        : pendingCount > 0
+                          ? "bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/25"
+                          : "bg-white/5 text-white/50 border-white/10"
+                    }`}
+                  >
+                    <span>Needs Verification</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${scheduleFilter === "PENDING" ? "bg-black text-amber-400 font-bold" : "bg-amber-400/20 text-amber-300 font-mono"}`}>
+                      {pendingCount}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScheduleFilter("CONFIRMED")}
+                    className={`px-3 py-1.5 rounded-lg border font-semibold transition-all ${
+                      scheduleFilter === "CONFIRMED"
+                        ? "bg-emerald-400 text-black border-emerald-400 font-bold"
+                        : "bg-white/5 text-white/70 border-white/10 hover:bg-white/10"
+                    }`}
+                  >
+                    Confirmed ({upcomingBookings.filter((b) => b.status === "CONFIRMED").length})
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-white/50 text-[11px] font-semibold">Court:</span>
+                  <select
+                    value={scheduleCourtFilter}
+                    onChange={(e) => setScheduleCourtFilter(e.target.value)}
+                    className="bg-[#161f2e] border border-white/15 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-[#c7f711]"
+                  >
+                    <option value="ALL">All Courts</option>
+                    {courts.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* URGENT REVIEW QUEUE: Pending Verification Banner at top of Schedule */}
+              {pendingCount > 0 && scheduleFilter !== "CONFIRMED" && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 space-y-3.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-amber-500/20">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping shrink-0" />
+                      <h3 className="text-xs sm:text-sm font-extrabold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <span>⚠️ Action Required: {pendingCount} UPI Payment(s) Awaiting Review</span>
+                      </h3>
+                    </div>
+                    <span className="text-[11px] text-amber-200/70">
+                      Check customer screenshot &amp; bank credit before approving.
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {upcomingBookings
+                      .filter((b) => b.status === "PENDING_VERIFICATION")
+                      .map((b) => {
+                        const start = new Date(b.startTime);
+                        const end = new Date(b.endTime);
+                        const dateStr = start.toLocaleDateString("en-IN", {
+                          timeZone: "Asia/Kolkata",
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                        });
+                        const timeStr = `${start.toLocaleTimeString("en-IN", {
+                          timeZone: "Asia/Kolkata",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,
+                        })} - ${end.toLocaleTimeString("en-IN", {
+                          timeZone: "Asia/Kolkata",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}`;
+
+                        return (
+                          <div
+                            key={b.id}
+                            className="p-4 rounded-2xl bg-[#090e17] border-2 border-amber-500/50 shadow-lg space-y-3 flex flex-col justify-between"
+                          >
+                            <div className="space-y-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                                    {b.courtName || "Court 1"}
+                                  </span>
+                                  <div className="text-white font-bold text-xs mt-1.5 truncate">{b.customerName}</div>
+                                  <div className="text-[11px] text-white/60 font-mono">{b.customerPhone}</div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <div className="text-base font-extrabold text-[#c7f711]">₹{b.totalPrice || 400}</div>
+                                  <span className="text-[9px] text-white/40 font-mono">#{b.id.slice(-6).toUpperCase()}</span>
+                                </div>
+                              </div>
+
+                              <div className="text-[11px] text-white/70 flex items-center gap-1.5">
+                                <Clock className="w-3 h-3 text-amber-400 shrink-0" />
+                                <span>{dateStr} • {timeStr} ({formatBookingDuration(b)})</span>
+                              </div>
+
+                              {b.paymentUtr && (
+                                <div className="text-[10px] bg-white/5 border border-white/10 rounded-lg px-2 py-1 flex items-center justify-between">
+                                  <span className="text-white/60">UTR / Ref:</span>
+                                  <span className="font-mono font-bold text-amber-200">{b.paymentUtr}</span>
+                                </div>
+                              )}
+
+                              {/* Customer Uploaded Photo Preview */}
+                              {b.paymentScreenshotUrl ? (
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between text-[10px] text-amber-300 font-semibold">
+                                    <span>Uploaded Payment Screenshot</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => openPhotoModal(b)}
+                                      className="text-[#c7f711] hover:underline flex items-center gap-1 lowercase text-[10px]"
+                                    >
+                                      <Eye className="w-3 h-3" /> view full
+                                    </button>
+                                  </div>
+                                  <div
+                                    onClick={() => openPhotoModal(b)}
+                                    className="relative group cursor-pointer overflow-hidden rounded-xl border border-amber-500/30 bg-black/60 h-28 flex items-center justify-center transition-all hover:border-[#c7f711]"
+                                  >
+                                    <img
+                                      src={b.paymentScreenshotUrl}
+                                      alt="Customer payment proof"
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-all"
+                                    />
+                                    <div className="absolute inset-0 bg-black/50 group-hover:bg-black/20 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100">
+                                      <span className="px-2 py-1 rounded bg-black/80 text-white text-[10px] font-bold flex items-center gap-1">
+                                        <Eye className="w-3 h-3" /> Click to Enlarge
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="p-2 text-center text-[10px] text-white/40 bg-white/5 rounded-lg border border-dashed border-white/10">
+                                  No screenshot uploaded
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Direct Action Buttons */}
+                            <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+                              <button
+                                type="button"
+                                disabled={verifyingId === b.id}
+                                onClick={() => handleApprovePayment(b.id)}
+                                className="flex-1 min-h-[40px] text-xs font-extrabold py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all disabled:opacity-50"
+                              >
+                                <CheckCircle className="w-4 h-4 shrink-0" />
+                                <span>{verifyingId === b.id ? "Approving..." : "Accept"}</span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled={verifyingId === b.id}
+                                onClick={() => openRejectModal(b)}
+                                className="flex-1 min-h-[40px] text-xs font-bold py-2 px-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+                              >
+                                <XCircle className="w-4 h-4 shrink-0" />
+                                <span>Reject</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
               {loadingSchedule ? (
                 <div className="py-6 text-center text-xs text-white/50">
                   <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-[#c7f711]" />
                   Syncing live court schedule...
                 </div>
               ) : upcomingBookings.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {upcomingBookings.slice(0, 6).map((b) => {
-                    const start = new Date(b.startTime);
-                    const end = new Date(b.endTime);
-                    const dateStr = start.toLocaleDateString("en-IN", {
-                      timeZone: "Asia/Kolkata",
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                    });
-                    const timeStr = `${start.toLocaleTimeString("en-IN", {
-                      timeZone: "Asia/Kolkata",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      hour12: true,
-                    })} - ${end.toLocaleTimeString("en-IN", {
-                      timeZone: "Asia/Kolkata",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      hour12: true,
-                    })}`;
-                    const isPendingPayment = b.paymentStatus === "PAY_AT_VENUE" || b.paymentStatus === "PENDING";
+                (() => {
+                  const filtered = upcomingBookings.filter((b) => {
+                    if (scheduleFilter === "PENDING" && b.status !== "PENDING_VERIFICATION") return false;
+                    if (scheduleFilter === "CONFIRMED" && b.status !== "CONFIRMED") return false;
+                    if (scheduleCourtFilter !== "ALL" && b.courtId !== scheduleCourtFilter) return false;
+                    return true;
+                  });
 
+                  const displayed = showAllUpcoming ? filtered : filtered.slice(0, 9);
+
+                  if (filtered.length === 0) {
                     return (
-                      <div
-                        key={b.id}
-                        className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-white/20 transition-all space-y-3"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[#c7f711]/20 text-[#c7f711] border border-[#c7f711]/30">
-                              {b.courtName || "Court 1"}
-                            </span>
-                            <div className="text-white font-bold text-xs mt-1.5 truncate">{b.customerName}</div>
-                            <div className="text-[11px] text-white/60 font-mono">{b.customerPhone}</div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <div className="text-sm font-extrabold text-[#c7f711]">₹{b.totalPrice || 400}</div>
-                            <span className="text-[9px] text-white/40 font-mono">#{b.id.slice(-6).toUpperCase()}</span>
-                          </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                          <div className="text-white/70 flex items-center gap-1 min-w-0">
-                            <Clock className="w-3 h-3 text-[#c7f711] shrink-0" aria-hidden="true" />
-                            <span className="truncate">{dateStr} • {timeStr} ({formatBookingDuration(b)})</span>
-                          </div>
-                          <span
-                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase shrink-0 ${b.paymentStatus === "PAID_ONLINE" || b.paymentStatus === "CASH_COUNTER"
-                                ? "bg-emerald-500/20 text-emerald-400"
-                                : b.paymentStatus === "UPI_COUNTER"
-                                  ? "bg-cyan-500/20 text-cyan-400"
-                                  : "bg-amber-500/20 text-amber-400"
-                              }`}
-                          >
-                            {b.paymentStatus?.replace(/_/g, " ")}
-                          </span>
-                        </div>
-
-                        {isPendingPayment && (
-                          <div className="flex items-center gap-2 pt-1">
-                            <button
-                              type="button"
-                              disabled={paymentUpdatingId === b.id}
-                              onClick={() => handleRecordPayment(b.id, "CASH_COUNTER")}
-                              className="flex-1 min-h-[40px] text-[11px] font-bold py-2 px-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition-all"
-                            >
-                              Collect Cash
-                            </button>
-                            <button
-                              type="button"
-                              disabled={paymentUpdatingId === b.id}
-                              onClick={() => handleRecordPayment(b.id, "UPI_COUNTER")}
-                              className="flex-1 min-h-[40px] text-[11px] font-bold py-2 px-2 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 transition-all"
-                            >
-                              Collect UPI
-                            </button>
-                          </div>
-                        )}
+                      <div className="p-6 text-center text-xs text-white/40 border border-dashed border-white/10 rounded-2xl">
+                        No bookings match the selected filter.
                       </div>
                     );
-                  })}
-                </div>
+                  }
+
+                  return (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {displayed.map((b) => {
+                          const start = new Date(b.startTime);
+                          const end = new Date(b.endTime);
+                          const dateStr = start.toLocaleDateString("en-IN", {
+                            timeZone: "Asia/Kolkata",
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                          });
+                          const timeStr = `${start.toLocaleTimeString("en-IN", {
+                            timeZone: "Asia/Kolkata",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                          })} - ${end.toLocaleTimeString("en-IN", {
+                            timeZone: "Asia/Kolkata",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                          })}`;
+                          const isPendingVerification = b.status === "PENDING_VERIFICATION";
+                          const isPendingPayment = b.paymentStatus === "PAY_AT_VENUE" || b.paymentStatus === "PENDING";
+
+                          return (
+                            <div
+                              key={b.id}
+                              className={`p-4 rounded-2xl border transition-all space-y-3 flex flex-col justify-between ${
+                                isPendingVerification
+                                  ? "bg-amber-500/10 border-amber-500/50 hover:border-amber-400"
+                                  : "bg-white/5 border-white/10 hover:border-white/20"
+                              }`}
+                            >
+                              <div className="space-y-2">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <span
+                                      className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${
+                                        isPendingVerification
+                                          ? "bg-amber-400/20 text-amber-300 border-amber-400/40"
+                                          : "bg-[#c7f711]/20 text-[#c7f711] border border-[#c7f711]/30"
+                                      }`}
+                                    >
+                                      {b.courtName || "Court 1"}
+                                    </span>
+                                    <div className="text-white font-bold text-xs mt-1.5 truncate">{b.customerName}</div>
+                                    <div className="text-[11px] text-white/60 font-mono">{b.customerPhone}</div>
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <div className="text-sm font-extrabold text-[#c7f711]">₹{b.totalPrice || 400}</div>
+                                    <span className="text-[9px] text-white/40 font-mono">#{b.id.slice(-6).toUpperCase()}</span>
+                                  </div>
+                                </div>
+
+                                <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                                  <div className="text-white/70 flex items-center gap-1 min-w-0">
+                                    <Clock className="w-3 h-3 text-[#c7f711] shrink-0" aria-hidden="true" />
+                                    <span className="truncate">{dateStr} • {timeStr} ({formatBookingDuration(b)})</span>
+                                  </div>
+                                  <span
+                                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase shrink-0 ${
+                                      isPendingVerification
+                                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                                        : b.paymentStatus === "PAID_ONLINE" || b.paymentStatus === "CASH_COUNTER"
+                                          ? "bg-emerald-500/20 text-emerald-400"
+                                          : b.paymentStatus === "UPI_COUNTER"
+                                            ? "bg-cyan-500/20 text-cyan-400"
+                                            : "bg-amber-500/20 text-amber-400"
+                                    }`}
+                                  >
+                                    {isPendingVerification ? "VERIFICATION PENDING" : b.paymentStatus?.replace(/_/g, " ")}
+                                  </span>
+                                </div>
+
+                                {b.paymentUtr && (
+                                  <div className="text-[10px] bg-white/5 border border-white/10 rounded-lg px-2 py-0.5 flex items-center justify-between">
+                                    <span className="text-white/50">UTR:</span>
+                                    <span className="font-mono font-bold text-[#c7f711]">{b.paymentUtr}</span>
+                                  </div>
+                                )}
+
+                                {/* Customer photo preview on schedule card */}
+                                {b.paymentScreenshotUrl && (
+                                  <div className="pt-1">
+                                    <div
+                                      onClick={() => openPhotoModal(b)}
+                                      className="relative group cursor-pointer overflow-hidden rounded-xl border border-white/15 bg-black/50 h-24 flex items-center justify-center transition-all hover:border-[#c7f711]"
+                                    >
+                                      <img
+                                        src={b.paymentScreenshotUrl}
+                                        alt="Payment screenshot"
+                                        className="w-full h-full object-cover group-hover:scale-105 transition-all"
+                                      />
+                                      <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 flex items-center justify-center transition-all">
+                                        <span className="px-2 py-0.5 rounded bg-black/80 text-white text-[10px] font-bold flex items-center gap-1">
+                                          <Eye className="w-3 h-3" /> View Photo Proof
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Card Action Controls */}
+                              <div className="space-y-2 pt-2 border-t border-white/10">
+                                {isPendingVerification ? (
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      disabled={verifyingId === b.id}
+                                      onClick={() => handleApprovePayment(b.id)}
+                                      className="flex-1 min-h-[38px] text-xs font-bold py-2 px-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black flex items-center justify-center gap-1 transition-all disabled:opacity-50"
+                                    >
+                                      <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                                      <span>{verifyingId === b.id ? "Approving..." : "Accept"}</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={verifyingId === b.id}
+                                      onClick={() => openRejectModal(b)}
+                                      className="flex-1 min-h-[38px] text-xs font-bold py-2 px-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 flex items-center justify-center gap-1 transition-all disabled:opacity-50"
+                                    >
+                                      <XCircle className="w-3.5 h-3.5 shrink-0" />
+                                      <span>Reject</span>
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    {isPendingPayment && (
+                                      <>
+                                        <button
+                                          type="button"
+                                          disabled={paymentUpdatingId === b.id}
+                                          onClick={() => handleRecordPayment(b.id, "CASH_COUNTER")}
+                                          className="flex-1 min-h-[36px] text-[11px] font-bold py-1.5 px-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition-all"
+                                        >
+                                          Collect Cash
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={paymentUpdatingId === b.id}
+                                          onClick={() => handleRecordPayment(b.id, "UPI_COUNTER")}
+                                          className="flex-1 min-h-[36px] text-[11px] font-bold py-1.5 px-2 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 transition-all"
+                                        >
+                                          Collect UPI
+                                        </button>
+                                      </>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setCancelModalBooking(b);
+                                        setCancelReason("");
+                                      }}
+                                      className="min-h-[36px] text-[11px] font-semibold py-1.5 px-3 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/20 hover:border-red-500/40 transition-all ml-auto"
+                                    >
+                                      Cancel Booking
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {filtered.length > 9 && (
+                        <div className="text-center pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowAllUpcoming(!showAllUpcoming)}
+                            className="text-xs text-[#c7f711] hover:underline bg-white/5 border border-white/10 px-4 py-2 rounded-xl font-bold"
+                          >
+                            {showAllUpcoming ? "Show Fewer Bookings" : `Show All ${filtered.length} Bookings`}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
               ) : (
                 <div className="p-6 text-center text-xs text-white/40 border border-dashed border-white/10 rounded-2xl">
                   No upcoming reservations currently in queue. Courts 1, 2, and 3 are ready for action.
@@ -1093,13 +1554,13 @@ export default function StaffPanelPage() {
                       <span className="text-xs font-semibold text-white/80 block mb-2 uppercase tracking-wider">
                         Payment Status
                       </span>
-                      <div className="grid grid-cols-1 min-[380px]:grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 min-[380px]:grid-cols-4 gap-2">
                         <button
                           type="button"
                           aria-pressed={paymentStatus === "CASH_COUNTER"}
                           onClick={() => setPaymentStatus("CASH_COUNTER")}
-                          className={`py-2.5 px-2.5 min-h-[42px] rounded-xl border text-xs sm:text-[11px] font-bold transition-all text-center ${paymentStatus === "CASH_COUNTER"
-                              ? "bg-emerald-400 text-black border-emerald-400"
+                          className={`py-2.5 px-2 min-h-[42px] rounded-xl border text-xs sm:text-[11px] font-bold transition-all text-center ${paymentStatus === "CASH_COUNTER"
+                              ? "bg-emerald-400 text-black border-emerald-400 shadow-sm"
                               : "bg-white/5 border-white/10 text-white/75"
                             }`}
                         >
@@ -1109,8 +1570,8 @@ export default function StaffPanelPage() {
                           type="button"
                           aria-pressed={paymentStatus === "UPI_COUNTER"}
                           onClick={() => setPaymentStatus("UPI_COUNTER")}
-                          className={`py-2.5 px-2.5 min-h-[42px] rounded-xl border text-xs sm:text-[11px] font-bold transition-all text-center ${paymentStatus === "UPI_COUNTER"
-                              ? "bg-emerald-400 text-black border-emerald-400"
+                          className={`py-2.5 px-2 min-h-[42px] rounded-xl border text-xs sm:text-[11px] font-bold transition-all text-center ${paymentStatus === "UPI_COUNTER"
+                              ? "bg-emerald-400 text-black border-emerald-400 shadow-sm"
                               : "bg-white/5 border-white/10 text-white/75"
                             }`}
                         >
@@ -1118,10 +1579,21 @@ export default function StaffPanelPage() {
                         </button>
                         <button
                           type="button"
+                          aria-pressed={paymentStatus === "PAID_ONLINE"}
+                          onClick={() => setPaymentStatus("PAID_ONLINE")}
+                          className={`py-2.5 px-2 min-h-[42px] rounded-xl border text-xs sm:text-[11px] font-bold transition-all text-center ${paymentStatus === "PAID_ONLINE"
+                              ? "bg-cyan-400 text-black border-cyan-400 shadow-sm"
+                              : "bg-white/5 border-white/10 text-white/75"
+                            }`}
+                        >
+                          Online UPI
+                        </button>
+                        <button
+                          type="button"
                           aria-pressed={paymentStatus === "PAY_AT_VENUE"}
                           onClick={() => setPaymentStatus("PAY_AT_VENUE")}
-                          className={`py-2.5 px-2.5 min-h-[42px] rounded-xl border text-xs sm:text-[11px] font-bold transition-all text-center ${paymentStatus === "PAY_AT_VENUE"
-                              ? "bg-amber-400 text-black border-amber-400"
+                          className={`py-2.5 px-2 min-h-[42px] rounded-xl border text-xs sm:text-[11px] font-bold transition-all text-center ${paymentStatus === "PAY_AT_VENUE"
+                              ? "bg-amber-400 text-black border-amber-400 shadow-sm"
                               : "bg-white/5 border-white/10 text-white/75"
                             }`}
                         >
@@ -1671,57 +2143,258 @@ export default function StaffPanelPage() {
               </div>
             )}
 
-            {/* Cancel Modal */}
-            {cancelModalBooking && (
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="staff-cancel-modal-title"
-                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-              >
-                <div className="bg-[#0d141f] border border-white/15 rounded-3xl p-5 sm:p-8 max-w-md w-full max-h-[92vh] overflow-y-auto">
-                  <div className="flex items-center gap-3 text-red-400 mb-4">
-                    <ShieldAlert className="w-6 h-6 shrink-0" aria-hidden="true" />
-                    <h3 id="staff-cancel-modal-title" className="font-bold text-lg text-white">Confirm Desk Cancellation</h3>
-                  </div>
-                  <p className="text-xs text-white/70 mb-4">
-                    Cancelling booking <strong className="text-white">#{cancelModalBooking.id.slice(-6).toUpperCase()}</strong> for {cancelModalBooking.customerName}.
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 6: MANUAL UPI PAYMENT VERIFICATIONS */}
+        {/* ========================================================================= */}
+        {activeTab === "verifications" && (
+          <PendingVerificationsView
+            onStatusChange={() => {
+              fetchStaffUpcomingSchedule();
+              fetchCourts();
+            }}
+          />
+        )}
+
+        {/* ========================================================================= */}
+        {/* UNIVERSAL MODAL 1: PHOTO PREVIEW & VERIFICATION LIGHTBOX */}
+        {/* ========================================================================= */}
+        {photoModalImage && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md"
+            onClick={() => {
+              setPhotoModalImage(null);
+              setPhotoModalBooking(null);
+            }}
+          >
+            <div
+              className="bg-[#0d141f] border border-white/20 rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-y-auto p-5 sm:p-6 space-y-4 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div>
+                  <h3 className="font-bold text-base text-white flex items-center gap-2">
+                    <span>Payment Proof Screenshot</span>
+                    {photoModalBooking && (
+                      <span className="text-xs bg-[#c7f711]/20 text-[#c7f711] px-2 py-0.5 rounded font-mono">
+                        #{photoModalBooking.id.slice(-6).toUpperCase()}
+                      </span>
+                    )}
+                  </h3>
+                  {photoModalBooking && (
+                    <p className="text-xs text-white/60 mt-0.5">
+                      {photoModalBooking.customerName} ({photoModalBooking.customerPhone}) • ₹{photoModalBooking.totalPrice} • {photoModalBooking.courtName || "Court 1"}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhotoModalImage(null);
+                    setPhotoModalBooking(null);
+                  }}
+                  className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="bg-black/90 rounded-2xl overflow-hidden border border-white/10 flex items-center justify-center p-2 min-h-[280px]">
+                <img
+                  src={photoModalImage}
+                  alt="Customer payment proof"
+                  className="max-h-[55vh] w-auto max-w-full object-contain rounded-xl"
+                />
+              </div>
+
+              {photoModalBooking?.paymentUtr && (
+                <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-between text-xs">
+                  <span className="text-white/60">Customer Submitted UTR / Transaction ID:</span>
+                  <span className="font-mono font-bold text-[#c7f711] text-sm">{photoModalBooking.paymentUtr}</span>
+                </div>
+              )}
+
+              {photoModalBooking?.status === "PENDING_VERIFICATION" && (
+                <div className="flex flex-wrap items-center justify-end gap-3 pt-2 border-t border-white/10">
+                  <button
+                    type="button"
+                    disabled={verifyingId === photoModalBooking.id}
+                    onClick={() => handleApprovePayment(photoModalBooking.id)}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all disabled:opacity-50"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Accept &amp; Confirm Booking</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={verifyingId === photoModalBooking.id}
+                    onClick={() => {
+                      const b = photoModalBooking;
+                      setPhotoModalImage(null);
+                      setPhotoModalBooking(null);
+                      openRejectModal(b);
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 text-xs font-bold flex items-center gap-1.5 transition-all"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    <span>Reject Booking</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* UNIVERSAL MODAL 2: REJECT UPI PAYMENT & RELEASE SLOT */}
+        {/* ========================================================================= */}
+        {rejectModalBooking && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={() => setRejectModalBooking(null)}
+          >
+            <div
+              className="bg-[#0d141f] border border-white/15 rounded-3xl p-5 sm:p-7 max-w-md w-full max-h-[92vh] overflow-y-auto space-y-4 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 text-red-400">
+                <ShieldAlert className="w-6 h-6 shrink-0" />
+                <div>
+                  <h3 className="font-bold text-lg text-white">Reject UPI Payment</h3>
+                  <p className="text-xs text-white/60">
+                    Booking #{rejectModalBooking.id.slice(-6).toUpperCase()} • {rejectModalBooking.customerName}
                   </p>
-
-                  <div className="mb-4">
-                    <label htmlFor="staff-cancel-reason" className="text-xs font-semibold text-white/80 block mb-1">
-                      Reason for Cancellation (Audit Log) *
-                    </label>
-                    <textarea
-                      id="staff-cancel-reason"
-                      required
-                      placeholder="e.g. Customer called to reschedule, rain cancellation, etc."
-                      value={cancelReason}
-                      onChange={(e) => setCancelReason(e.target.value)}
-                      className="w-full min-w-0 bg-white/5 border border-white/15 rounded-xl p-3 text-base sm:text-xs text-white placeholder-white/30 focus:outline-none focus:border-red-400 h-24"
-                    />
-                  </div>
-
-                  <div className="flex flex-wrap gap-3 justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setCancelModalBooking(null)}
-                      className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] rounded-xl text-xs text-white/70 hover:text-white border border-white/10"
-                    >
-                      Dismiss
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleStaffCancel}
-                      disabled={cancelLoading || !cancelReason}
-                      className="w-full sm:w-auto px-5 py-2.5 min-h-[44px] rounded-xl text-xs font-bold bg-red-500 hover:bg-red-600 text-white transition-all disabled:opacity-50"
-                    >
-                      {cancelLoading ? "Processing..." : "Confirm Cancellation"}
-                    </button>
-                  </div>
                 </div>
               </div>
-            )}
+
+              <p className="text-xs text-white/70 leading-relaxed">
+                Rejecting will cancel this booking, release the reserved court slot immediately, and record the reason for customer audit.
+              </p>
+
+              {/* Preset quick reasons */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-semibold text-white/80 block">Quick Reason Selection:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    "Payment not received in bank account",
+                    "Incorrect payment amount",
+                    "Invalid or blurred screenshot",
+                    "Duplicate UTR / screenshot already used",
+                    "Slot expired before payment proof",
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setRejectionReasonText(preset)}
+                      className={`text-[10px] px-2.5 py-1 rounded-lg border transition-all text-left ${
+                        rejectionReasonText === preset
+                          ? "bg-red-500/20 border-red-400 text-red-200 font-bold"
+                          : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="staff-rejection-reason" className="text-xs font-semibold text-white/80 block mb-1">
+                  Detailed Reason for Rejection *
+                </label>
+                <textarea
+                  id="staff-rejection-reason"
+                  required
+                  placeholder="Specify why payment was rejected (visible on customer profile)..."
+                  value={rejectionReasonText}
+                  onChange={(e) => setRejectionReasonText(e.target.value)}
+                  className="w-full bg-white/5 border border-white/15 rounded-xl p-3 text-xs text-white placeholder-white/30 focus:outline-none focus:border-red-400 h-24"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-2.5 justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRejectModalBooking(null)}
+                  className="px-4 py-2.5 rounded-xl text-xs text-white/70 hover:text-white border border-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRejectPaymentSubmit}
+                  disabled={verifyingId === rejectModalBooking.id || !rejectionReasonText.trim()}
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-red-500 hover:bg-red-600 text-white transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-md shadow-red-500/20"
+                >
+                  <XCircle className="w-4 h-4" />
+                  <span>{verifyingId === rejectModalBooking.id ? "Rejecting..." : "Confirm Rejection & Release Slot"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* UNIVERSAL MODAL 3: CONFIRM DESK CANCELLATION */}
+        {/* ========================================================================= */}
+        {cancelModalBooking && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="staff-cancel-modal-title"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={() => setCancelModalBooking(null)}
+          >
+            <div
+              className="bg-[#0d141f] border border-white/15 rounded-3xl p-5 sm:p-8 max-w-md w-full max-h-[92vh] overflow-y-auto space-y-4 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 text-red-400">
+                <ShieldAlert className="w-6 h-6 shrink-0" aria-hidden="true" />
+                <h3 id="staff-cancel-modal-title" className="font-bold text-lg text-white">Confirm Desk Cancellation</h3>
+              </div>
+              <p className="text-xs text-white/70">
+                Cancelling booking <strong className="text-white">#{cancelModalBooking.id.slice(-6).toUpperCase()}</strong> for {cancelModalBooking.customerName}.
+              </p>
+
+              <div>
+                <label htmlFor="staff-cancel-reason" className="text-xs font-semibold text-white/80 block mb-1">
+                  Reason for Cancellation (Audit Log) *
+                </label>
+                <textarea
+                  id="staff-cancel-reason"
+                  required
+                  placeholder="e.g. Customer called to reschedule, rain cancellation, etc."
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  className="w-full min-w-0 bg-white/5 border border-white/15 rounded-xl p-3 text-base sm:text-xs text-white placeholder-white/30 focus:outline-none focus:border-red-400 h-24"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-3 justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCancelModalBooking(null)}
+                  className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] rounded-xl text-xs text-white/70 hover:text-white border border-white/10"
+                >
+                  Dismiss
+                </button>
+                <button
+                  type="button"
+                  onClick={handleStaffCancel}
+                  disabled={cancelLoading || !cancelReason}
+                  className="w-full sm:w-auto px-5 py-2.5 min-h-[44px] rounded-xl text-xs font-bold bg-red-500 hover:bg-red-600 text-white transition-all disabled:opacity-50"
+                >
+                  {cancelLoading ? "Processing..." : "Confirm Cancellation"}
+                </button>
+              </div>
+            </div>
           </div>
         )}
           </>

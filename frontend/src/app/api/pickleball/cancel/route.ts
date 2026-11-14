@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickleballDb } from "@/lib/db/pickleballDb";
 import { getAuthenticatedActor } from "@/lib/auth/serverAuth";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { supabaseDb } from "@/lib/supabase/supabaseDb";
 import {
   callDjangoApi,
   getBackendMisconfiguredResponse,
@@ -41,11 +43,57 @@ export async function POST(req: NextRequest) {
       return toProxyJsonResponse(upstream);
     }
 
+    const isStaffOrOwner = actor.role === "OWNER" || actor.role === "EMPLOYEE";
+
+    if (isSupabaseConfigured()) {
+      const booking = await supabaseDb.getBookingById(bookingId);
+      if (!booking) {
+        return NextResponse.json(
+          { success: false, error: "Booking not found or access denied." },
+          { status: 403 }
+        );
+      }
+
+      if (!isStaffOrOwner) {
+        const cleanPhone = (p?: string) => (p || "").replace(/\D/g, "").slice(-10);
+        const actorPhone = cleanPhone(actor.phone);
+        const bookingPhone = cleanPhone(booking.customerPhone);
+        const phoneMatches = Boolean(actorPhone && bookingPhone && actorPhone === bookingPhone);
+        const emailMatches = Boolean(
+          actor.email &&
+            booking.customerEmail &&
+            actor.email.trim().toLowerCase() === booking.customerEmail.trim().toLowerCase()
+        );
+
+        if (!phoneMatches && !emailMatches) {
+          return NextResponse.json(
+            { success: false, error: "Booking not found or access denied." },
+            { status: 403 }
+          );
+        }
+      }
+
+      const actorRole = isStaffOrOwner ? (actor.role === "OWNER" ? "OWNER" : "STAFF") : "CUSTOMER";
+      const result = await supabaseDb.cancelBooking({
+        bookingId,
+        actor: { id: actor.id, role: actorRole },
+        cancellationReason: reason || (isStaffOrOwner ? "Cancelled by staff/admin" : "Cancelled by customer"),
+      });
+
+      if (!result.success) {
+        return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        booking: result.booking,
+        message: "Booking successfully cancelled. Slot has been freed for reservation.",
+      });
+    }
+
     if (isLocalJsonFallbackDisabled()) {
       return getBackendMisconfiguredResponse();
     }
-
-    const isStaffOrOwner = actor.role === "OWNER" || actor.role === "EMPLOYEE";
 
     // Verify booking existence and ownership
     const booking = pickleballDb.getBookingById(bookingId);

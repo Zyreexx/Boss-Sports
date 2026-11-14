@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickleballDb } from "@/lib/db/pickleballDb";
 import { enforceRole } from "@/lib/auth/serverAuth";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { supabaseDb } from "@/lib/supabase/supabaseDb";
 import {
   callDjangoApi,
   getBackendMisconfiguredResponse,
@@ -27,6 +29,38 @@ export async function GET(req: NextRequest) {
       return toProxyJsonResponse(upstream, {
         "Cache-Control": "no-store, no-cache, must-revalidate",
       });
+    }
+
+    if (isSupabaseConfigured()) {
+      const report = await supabaseDb.getPickleballReport();
+      const s = report.summary;
+
+      return NextResponse.json(
+        {
+          success: true,
+          timestamp: report.generatedAt,
+          summary: {
+            grandTotalRevenue: s.realizedRevenue,
+            realizedRevenue: s.realizedRevenue,
+            grossBookedValue: s.realizedRevenue + s.pendingVenuePayment,
+            pendingVenuePayment: s.pendingVenuePayment,
+            totalCashReconciliation: s.cashRevenue,
+            totalUpiReconciliation: s.upiCounterRevenue,
+            totalOnlineReconciliation: s.onlineRevenue,
+            totalBookings: s.totalConfirmedBookings,
+            confirmedBookings: s.totalConfirmedBookings,
+            totalPendingVerifications: s.totalPendingVerifications,
+            totalCancelledBookings: s.totalCancelledBookings,
+            activeHolds: 0,
+          },
+          pickleballDatabase: report,
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+          },
+        }
+      );
     }
 
     if (isLocalJsonFallbackDisabled()) {

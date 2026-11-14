@@ -22,6 +22,7 @@ from .views import (
     LoginView,
     MeView,
     UploadView,
+    VerifyPaymentView,
 )
 
 router = DefaultRouter()
@@ -39,6 +40,7 @@ urlpatterns = [
     path('pickleball/hold/', HoldView.as_view(), name='pickleball_hold'),
     path('pickleball/book/', BookCreateView.as_view(), name='pickleball_book'),
     path('pickleball/bookings/', BookingsCollectionView.as_view(), name='pickleball_bookings'),
+    path('pickleball/verify-payment/', VerifyPaymentView.as_view(), name='pickleball_verify_payment'),
     path('pickleball/cancel/', BookingCancelView.as_view(), name='pickleball_cancel'),
     path('pickleball/courts/', CourtsCollectionView.as_view(), name='pickleball_courts'),
 

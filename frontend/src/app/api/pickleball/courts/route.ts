@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickleballDb } from "@/lib/db/pickleballDb";
 import { enforceRole, getAuthenticatedActor } from "@/lib/auth/serverAuth";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { supabaseDb } from "@/lib/supabase/supabaseDb";
 import {
   callDjangoApi,
   getBackendMisconfiguredResponse,
@@ -25,6 +27,11 @@ export async function GET(req: NextRequest) {
         actor,
       });
       return toProxyJsonResponse(upstream);
+    }
+
+    if (isSupabaseConfigured()) {
+      const courts = await supabaseDb.getAllCourts(includeInactive);
+      return NextResponse.json({ success: true, courts });
     }
 
     if (isLocalJsonFallbackDisabled()) {
@@ -75,6 +82,24 @@ export async function POST(req: NextRequest) {
         actor: auth.actor,
       });
       return toProxyJsonResponse(upstream);
+    }
+
+    if (isSupabaseConfigured()) {
+      const newCourt = await supabaseDb.addCourt(
+        {
+          name,
+          surfaceType: surfaceType || "Pickleball Court",
+          isIndoor: isIndoor ?? true,
+          basePricePerHour: basePricePerHour ? Number(basePricePerHour) : 400,
+        },
+        auth.actor
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: `Court "${newCourt.name}" added successfully!`,
+        court: newCourt,
+      });
     }
 
     if (isLocalJsonFallbackDisabled()) {
@@ -187,6 +212,15 @@ export async function PATCH(req: NextRequest) {
       return toProxyJsonResponse(upstream);
     }
 
+    if (isSupabaseConfigured()) {
+      const updated = await supabaseDb.updateCourt(courtId, safeUpdates, auth.actor);
+      return NextResponse.json({
+        success: true,
+        message: `Court "${updated.name}" updated successfully!`,
+        court: updated,
+      });
+    }
+
     if (isLocalJsonFallbackDisabled()) {
       return getBackendMisconfiguredResponse();
     }
@@ -231,6 +265,14 @@ export async function DELETE(req: NextRequest) {
         actor: auth.actor,
       });
       return toProxyJsonResponse(upstream);
+    }
+
+    if (isSupabaseConfigured()) {
+      await supabaseDb.deleteCourt(courtId, auth.actor);
+      return NextResponse.json({
+        success: true,
+        message: `Court ${courtId} removed successfully.`,
+      });
     }
 
     if (isLocalJsonFallbackDisabled()) {

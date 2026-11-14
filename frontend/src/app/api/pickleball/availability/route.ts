@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickleballDb, getVenueTodayDate } from "@/lib/db/pickleballDb";
 import { getAuthenticatedActor } from "@/lib/auth/serverAuth";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { supabaseDb } from "@/lib/supabase/supabaseDb";
 import {
   callDjangoApi,
   getBackendMisconfiguredResponse,
@@ -35,12 +37,21 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    if (isLocalJsonFallbackDisabled()) {
-      return getBackendMisconfiguredResponse();
-    }
+    let courts: any[];
+    let result: any;
 
-    const courts = pickleballDb.getCourts();
-    const result = pickleballDb.getAvailability(date, courtId);
+    if (isSupabaseConfigured()) {
+      [courts, result] = await Promise.all([
+        supabaseDb.getCourts(),
+        supabaseDb.getAvailability(date, courtId),
+      ]);
+    } else {
+      if (isLocalJsonFallbackDisabled()) {
+        return getBackendMisconfiguredResponse();
+      }
+      courts = pickleballDb.getCourts();
+      result = pickleballDb.getAvailability(date, courtId);
+    }
 
     // Strip customer PII from public availability feed
     const sanitizedAvailability = result.courts.map((c: any) => ({

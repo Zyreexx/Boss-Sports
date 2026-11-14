@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickleballDb } from "@/lib/db/pickleballDb";
 import { getAuthenticatedActor } from "@/lib/auth/serverAuth";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { supabaseDb } from "@/lib/supabase/supabaseDb";
 import {
   callDjangoApi,
   getBackendMisconfiguredResponse,
@@ -64,17 +66,39 @@ export async function POST(req: NextRequest) {
       | "UPI_COUNTER"
       | "PAY_AT_VENUE"
       | "PENDING" = "PAY_AT_VENUE";
+    let sanitizedPaymentMethod: "PAY_AT_VENUE" | "UPI_MANUAL" | "RAZORPAY" | "UPI" | "CASH" = "PAY_AT_VENUE";
+    let paymentScreenshotUrl: string | undefined = undefined;
+    let paymentUtr: string | undefined = undefined;
 
-    if (isStaffOrOwner && (sanitizedSource === "WALKIN" || sanitizedSource === "PHONE")) {
+    if (body.paymentMethod === "UPI_MANUAL" || body.paymentStatus === "PENDING") {
+      if (!body.paymentScreenshotUrl) {
+        return NextResponse.json(
+          { success: false, error: "Payment screenshot is required for online UPI verification." },
+          { status: 400 }
+        );
+      }
+      sanitizedPaymentMethod = "UPI_MANUAL";
+      sanitizedPaymentStatus = "PENDING";
+      paymentScreenshotUrl = String(body.paymentScreenshotUrl).trim();
+      paymentUtr = body.paymentUtr ? String(body.paymentUtr).trim() : undefined;
+    } else if (isStaffOrOwner && (sanitizedSource === "WALKIN" || sanitizedSource === "PHONE")) {
       // Authenticated staff can set desk payments
-      if (body.paymentStatus === "CASH_COUNTER" || body.paymentStatus === "UPI_COUNTER") {
+      if (body.paymentStatus === "CASH_COUNTER" || body.paymentStatus === "UPI_COUNTER" || body.paymentStatus === "PAID_ONLINE") {
         sanitizedPaymentStatus = body.paymentStatus;
+        sanitizedPaymentMethod =
+          body.paymentStatus === "CASH_COUNTER"
+            ? "CASH"
+            : body.paymentStatus === "PAID_ONLINE"
+              ? "UPI_MANUAL"
+              : "UPI";
       } else {
         sanitizedPaymentStatus = "PAY_AT_VENUE";
+        sanitizedPaymentMethod = "PAY_AT_VENUE";
       }
     } else {
       // Public online bookings CANNOT forge 'PAID_ONLINE' without verified payment gateway signature
       sanitizedPaymentStatus = "PAY_AT_VENUE";
+      sanitizedPaymentMethod = "PAY_AT_VENUE";
     }
 
     if (isDjangoBackendConfigured()) {
@@ -90,6 +114,9 @@ export async function POST(req: NextRequest) {
           customerEmail,
           source: sanitizedSource,
           paymentStatus: sanitizedPaymentStatus,
+          paymentMethod: sanitizedPaymentMethod,
+          paymentScreenshotUrl,
+          paymentUtr,
           discountCode,
           equipmentAddons,
           notes,
@@ -100,25 +127,51 @@ export async function POST(req: NextRequest) {
       return toProxyJsonResponse(upstream);
     }
 
-    if (isLocalJsonFallbackDisabled()) {
-      return getBackendMisconfiguredResponse();
-    }
+    let result: { success: boolean; booking?: any; error?: string };
 
-    const result = pickleballDb.createBooking({
-      courtId,
-      startTime,
-      endTime,
-      customerName,
-      customerPhone,
-      customerEmail,
-      source: sanitizedSource,
-      paymentStatus: sanitizedPaymentStatus,
-      discountCode,
-      equipmentAddons,
-      notes,
-      sessionId,
-      staffId: sanitizedStaffId,
-    });
+    if (isSupabaseConfigured()) {
+      result = await supabaseDb.createBooking({
+        courtId,
+        startTime,
+        endTime,
+        customerName,
+        customerPhone,
+        customerEmail,
+        source: sanitizedSource,
+        paymentStatus: sanitizedPaymentStatus,
+        paymentMethod: sanitizedPaymentMethod,
+        paymentScreenshotUrl,
+        paymentUtr,
+        discountCode,
+        equipmentAddons,
+        notes,
+        sessionId,
+        staffId: sanitizedStaffId,
+      });
+    } else {
+      if (isLocalJsonFallbackDisabled()) {
+        return getBackendMisconfiguredResponse();
+      }
+
+      result = pickleballDb.createBooking({
+        courtId,
+        startTime,
+        endTime,
+        customerName,
+        customerPhone,
+        customerEmail,
+        source: sanitizedSource,
+        paymentStatus: sanitizedPaymentStatus,
+        paymentMethod: sanitizedPaymentMethod,
+        paymentScreenshotUrl,
+        paymentUtr,
+        discountCode,
+        equipmentAddons,
+        notes,
+        sessionId,
+        staffId: sanitizedStaffId,
+      });
+    }
 
     if (!result.success) {
       return NextResponse.json(
@@ -127,10 +180,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const confirmationMessage =
+      result.booking?.status === "PENDING_VERIFICATION"
+        ? "Booking submitted for payment verification! Our staff will verify your UPI payment and confirm your slot."
+        : "Pickleball court successfully booked! Pay at reception before your match.";
+
     return NextResponse.json({
       success: true,
       booking: result.booking,
-      message: "Pickleball court successfully booked! Pay at reception before your match.",
+      message: confirmationMessage,
     });
   } catch (error: any) {
     return NextResponse.json(

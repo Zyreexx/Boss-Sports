@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickleballDb } from "@/lib/db/pickleballDb";
 import { enforceRole } from "@/lib/auth/serverAuth";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { supabaseDb } from "@/lib/supabase/supabaseDb";
 import {
   callDjangoApi,
   getBackendMisconfiguredResponse,
@@ -36,6 +38,19 @@ export async function POST(req: NextRequest) {
         actor: auth.actor,
       });
       return toProxyJsonResponse(upstream);
+    }
+
+    if (isSupabaseConfigured()) {
+      const block = await supabaseDb.createScheduleBlock(
+        { courtId, startTime, endTime, reason, notes },
+        auth.actor
+      );
+
+      return NextResponse.json({
+        success: true,
+        block,
+        message: "Court schedule block applied successfully",
+      });
     }
 
     if (isLocalJsonFallbackDisabled()) {

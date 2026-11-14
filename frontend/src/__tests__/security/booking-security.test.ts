@@ -505,10 +505,10 @@ describe("Security & Integrity Regression Suite: Boss Pickleball", () => {
     assert.equal(avail.timezone, "Asia/Kolkata");
     assert.equal(avail.courts.length, 1);
 
-    const slot2pm = avail.courts[0].slots.find((s: any) => s.displayTime === "14:00 - 15:00");
-    assert.ok(slot2pm, "Expected 14:00 - 15:00 IST slot");
+    const slot2pm = avail.courts[0].slots.find((s: any) => s.startTime === "2028-06-15T08:30:00.000Z");
+    assert.ok(slot2pm, "Expected 14:00 IST slot");
     assert.equal(slot2pm.startTime, "2028-06-15T08:30:00.000Z");
-    assert.equal(slot2pm.endTime, "2028-06-15T09:30:00.000Z");
+    assert.equal(slot2pm.endTime, "2028-06-15T09:00:00.000Z");
 
     // Verify IST peak hour calculation matches availability slot quote
     const peakHourRaw = avail.pricingConfig?.peakHours?.[0] ?? "18:00";

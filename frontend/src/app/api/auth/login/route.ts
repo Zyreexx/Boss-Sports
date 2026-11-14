@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authDb } from "@/lib/auth/authDb";
 import { setSessionCookie } from "@/lib/auth/serverAuth";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { supabaseDb } from "@/lib/supabase/supabaseDb";
 import {
   callDjangoApi,
   getBackendMisconfiguredResponse,
@@ -42,11 +44,22 @@ export async function POST(req: NextRequest) {
       return response;
     }
 
-    if (isLocalJsonFallbackDisabled()) {
-      return getBackendMisconfiguredResponse();
-    }
+    let result: {
+      success: boolean;
+      user?: any;
+      redirectUrl?: string;
+      token?: string;
+      error?: string;
+    };
 
-    const result = authDb.authenticate(identifier, password);
+    if (isSupabaseConfigured()) {
+      result = await supabaseDb.authenticateUser(identifier, password);
+    } else {
+      if (isLocalJsonFallbackDisabled()) {
+        return getBackendMisconfiguredResponse();
+      }
+      result = authDb.authenticate(identifier, password);
+    }
 
     if (!result.success || !result.user) {
       return NextResponse.json(

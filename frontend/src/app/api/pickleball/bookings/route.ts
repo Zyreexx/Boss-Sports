@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickleballDb, VENUE_TIMEZONE } from "@/lib/db/pickleballDb";
 import { getAuthenticatedActor, enforceRole } from "@/lib/auth/serverAuth";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { supabaseDb } from "@/lib/supabase/supabaseDb";
 import {
   callDjangoApi,
   getBackendMisconfiguredResponse,
@@ -50,11 +52,53 @@ export async function GET(req: NextRequest) {
       return toProxyJsonResponse(upstream);
     }
 
+    const isStaffOrOwner = actor.role === "OWNER" || actor.role === "EMPLOYEE";
+
+    if (isSupabaseConfigured()) {
+      if (isStaffOrOwner) {
+        if (requestedPhone) {
+          const history = await supabaseDb.getAllBookings({ phone: requestedPhone });
+          return NextResponse.json(
+            { success: true, bookings: history },
+            { headers: { "Cache-Control": "no-store" } }
+          );
+        }
+
+        const all = await supabaseDb.getAllBookings();
+        const filtered = date ? all.filter((b) => toVenueDateString(b.startTime) === date) : all;
+        return NextResponse.json(
+          { success: true, bookings: filtered },
+          { headers: { "Cache-Control": "no-store" } }
+        );
+      }
+
+      // Customer
+      const cleanPhone = (p?: string) => (p || "").replace(/\D/g, "").slice(-10);
+      const actorPhone = cleanPhone(actor.phone);
+      const actorEmail = (actor.email || "").trim().toLowerCase();
+
+      const all = await supabaseDb.getAllBookings();
+      const customerBookings = all.filter((b) => {
+        const bPhone = cleanPhone(b.customerPhone);
+        const bEmail = (b.customerEmail || "").trim().toLowerCase();
+        const phoneMatches = Boolean(actorPhone && bPhone && actorPhone === bPhone);
+        const emailMatches = Boolean(actorEmail && bEmail && actorEmail === bEmail);
+        return phoneMatches || emailMatches;
+      });
+
+      const filtered = date
+        ? customerBookings.filter((b) => toVenueDateString(b.startTime) === date)
+        : customerBookings;
+
+      return NextResponse.json(
+        { success: true, bookings: filtered },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     if (isLocalJsonFallbackDisabled()) {
       return getBackendMisconfiguredResponse();
     }
-
-    const isStaffOrOwner = actor.role === "OWNER" || actor.role === "EMPLOYEE";
 
     if (isStaffOrOwner) {
       // Authenticated staff or owner can search by phone or date across all reservations
@@ -142,17 +186,28 @@ export async function PATCH(req: NextRequest) {
       return toProxyJsonResponse(upstream);
     }
 
-    if (isLocalJsonFallbackDisabled()) {
-      return getBackendMisconfiguredResponse();
-    }
-
     const actorRole = auth.actor.role === "OWNER" ? "OWNER" : "STAFF";
-    const result = pickleballDb.updateBookingPayment({
-      bookingId,
-      paymentStatus,
-      actorRole,
-      actorId: auth.actor.id,
-    });
+    let result: { success: boolean; booking?: any; error?: string };
+
+    if (isSupabaseConfigured()) {
+      result = await supabaseDb.updateBookingPayment({
+        bookingId,
+        paymentStatus,
+        actorRole,
+        actorId: auth.actor.id,
+      });
+    } else {
+      if (isLocalJsonFallbackDisabled()) {
+        return getBackendMisconfiguredResponse();
+      }
+
+      result = pickleballDb.updateBookingPayment({
+        bookingId,
+        paymentStatus,
+        actorRole,
+        actorId: auth.actor.id,
+      });
+    }
 
     if (!result.success) {
       return NextResponse.json(

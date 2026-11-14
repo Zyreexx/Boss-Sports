@@ -431,14 +431,49 @@ export default function CustomerProfilePage() {
                           </div>
                         </div>
 
+                        {/* Verification Notice and Screenshot preview */}
+                        {b.status === "PENDING_VERIFICATION" && (
+                          <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-2 text-xs">
+                            <div className="flex items-start gap-2 text-amber-200">
+                              <span className="text-sm shrink-0">⏳</span>
+                              <span className="leading-relaxed">
+                                <strong>Payment Pending Staff Verification:</strong> Your UPI screenshot has been uploaded. Desk staff is reviewing the payment. Your court slot is held.
+                              </span>
+                            </div>
+                            {b.paymentScreenshotUrl && (
+                              <div className="pt-1 flex items-center gap-3">
+                                <a
+                                  href={b.paymentScreenshotUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-[11px] text-[#c7f711] hover:underline font-semibold bg-white/5 border border-white/10 px-2.5 py-1 rounded-lg"
+                                >
+                                  <span>View Uploaded Screenshot ↗</span>
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         <div className="pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                              ✓ {b.status}
-                            </span>
+                            {b.status === "PENDING_VERIFICATION" ? (
+                              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                ⏱ Verification Pending
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                ✓ {b.status}
+                              </span>
+                            )}
                             <span className="text-[10px] font-medium text-white/65">
-                              Payment: {b.paymentStatus?.replace("_", " ")}
+                              Payment: {b.paymentStatus === "PAID_ONLINE" ? "PAID ONLINE (VERIFIED)" : b.paymentStatus?.replace("_", " ")}
                             </span>
+                            {b.paymentUtr && (
+                              <span className="text-[10px] font-mono text-white/50">
+                                UTR: {b.paymentUtr}
+                              </span>
+                            )}
                           </div>
 
                           <button
@@ -493,17 +528,24 @@ export default function CustomerProfilePage() {
                       <div className="text-white/75">
                         {new Date(b.startTime).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })} • {new Date(b.startTime).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })} IST ({formatBookingDuration(b)})
                       </div>
-                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/10">
-                        <span className="font-mono text-[11px] text-white/55">#{b.id.slice(-6).toUpperCase()}</span>
-                        <span
-                          className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
-                            b.status === "CONFIRMED"
-                              ? "bg-emerald-500/20 text-emerald-300"
-                              : "bg-red-500/20 text-red-300"
-                          }`}
-                        >
-                          {b.status === "CONFIRMED" ? "✓ CONFIRMED" : `✕ ${b.status}`}
-                        </span>
+                      <div className="flex flex-col gap-1 pt-2 border-t border-white/10">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-[11px] text-white/55">#{b.id.slice(-6).toUpperCase()}</span>
+                          <span
+                            className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
+                              b.status === "CONFIRMED"
+                                ? "bg-emerald-500/20 text-emerald-300"
+                                : "bg-red-500/20 text-red-300"
+                            }`}
+                          >
+                            {b.status === "CONFIRMED" ? "✓ CONFIRMED" : `✕ ${b.status}`}
+                          </span>
+                        </div>
+                        {b.paymentRejectionReason && (
+                          <span className="text-[10px] text-red-300 italic">
+                            Reason: {b.paymentRejectionReason}
+                          </span>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -546,6 +588,11 @@ export default function CustomerProfilePage() {
                             >
                               {b.status}
                             </span>
+                            {b.paymentRejectionReason && (
+                              <span className="block text-[10px] text-red-300 italic mt-0.5 max-w-[200px] truncate" title={b.paymentRejectionReason}>
+                                {b.paymentRejectionReason}
+                              </span>
+                            )}
                           </td>
                         </tr>
                       ))}

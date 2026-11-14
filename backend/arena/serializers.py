@@ -48,6 +48,11 @@ class BookingSerializer(serializers.ModelSerializer):
             'notes',
             'cancellation_reason',
             'cancelled_at',
+            'payment_screenshot_url',
+            'payment_utr',
+            'payment_verified_by',
+            'payment_verified_at',
+            'payment_rejection_reason',
             'created_at',
             'updated_at',
         ]

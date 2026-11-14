@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickleballDb } from "@/lib/db/pickleballDb";
 import { enforceRole, getAuthenticatedActor } from "@/lib/auth/serverAuth";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { supabaseDb } from "@/lib/supabase/supabaseDb";
 import {
   callDjangoApi,
   getBackendMisconfiguredResponse,
@@ -25,6 +27,14 @@ export async function GET(req: NextRequest) {
         actor,
       });
       return toProxyJsonResponse(upstream);
+    }
+
+    if (isSupabaseConfigured()) {
+      const schedule = await supabaseDb.getArenaSchedule(date || "DEFAULT");
+      return NextResponse.json({
+        success: true,
+        schedule,
+      });
     }
 
     if (isLocalJsonFallbackDisabled()) {
@@ -89,6 +99,25 @@ export async function POST(req: NextRequest) {
         actor: auth.actor,
       });
       return toProxyJsonResponse(upstream);
+    }
+
+    if (isSupabaseConfigured()) {
+      const result = await supabaseDb.setArenaSchedule(
+        {
+          date,
+          isClosed: Boolean(isClosed),
+          closureReason: closureReason || undefined,
+          openTime: openTime || "06:00",
+          closeTime: closeTime || "23:00",
+        },
+        auth.actor
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: `Schedule for ${date} updated successfully!`,
+        schedule: result,
+      });
     }
 
     if (isLocalJsonFallbackDisabled()) {

@@ -67,8 +67,14 @@ export interface Booking {
   customerPhone: string;
   customerEmail?: string;
   source: "ONLINE" | "PHONE" | "WALKIN";
-  status: "HELD" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
+  status: "HELD" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "PENDING_VERIFICATION";
   paymentStatus: "PAID_ONLINE" | "CASH_COUNTER" | "UPI_COUNTER" | "PAY_AT_VENUE" | "PENDING" | "REFUNDED";
+  paymentMethod?: "PAY_AT_VENUE" | "UPI_MANUAL" | "RAZORPAY" | "UPI" | "CASH";
+  paymentScreenshotUrl?: string;
+  paymentUtr?: string;
+  paymentVerifiedBy?: string;
+  paymentVerifiedAt?: string;
+  paymentRejectionReason?: string;
   totalPrice: number;
   discountCode?: string;
   discountAmount?: number;
@@ -681,6 +687,24 @@ class PickleballDatabaseService {
     return state.holds.length !== originalCount;
   }
 
+  // 2b. Clean expired pending verification bookings
+  private pruneExpiredPendingBookings(state: PickleballDatabaseState): boolean {
+    const ttlMinutes = Number(process.env.PENDING_PAYMENT_TTL_MINUTES || 30);
+    const cutoff = Date.now() - ttlMinutes * 60 * 1000;
+    let modified = false;
+    for (const b of state.bookings) {
+      if (b.status === "PENDING_VERIFICATION" && new Date(b.createdAt).getTime() <= cutoff) {
+        b.status = "CANCELLED";
+        b.cancellationReason = `Payment verification timed out (${ttlMinutes} minutes elapsed without staff approval).`;
+        b.paymentRejectionReason = `Verification timed out after ${ttlMinutes} minutes.`;
+        b.cancelledAt = new Date().toISOString();
+        b.updatedAt = new Date().toISOString();
+        modified = true;
+      }
+    }
+    return modified;
+  }
+
   // 3. Interval overlap check: (startA < endB) AND (endA > startB)
   public hasIntervalOverlap(startA: string, endA: string, startB: string, endB: string): boolean {
     const sA = new Date(startA).getTime();
@@ -693,8 +717,9 @@ class PickleballDatabaseService {
   // 4. Get Availability for a date (Dynamic Schedules, Holidays, and Peak Surge Pricing)
   public getAvailability(dateStr: string, courtId?: string) {
     const state = this.load();
-    const pruned = this.pruneExpiredHolds(state);
-    if (pruned) {
+    const prunedHolds = this.pruneExpiredHolds(state);
+    const prunedPending = this.pruneExpiredPendingBookings(state);
+    if (prunedHolds || prunedPending) {
       this.save(state);
     }
 
@@ -992,6 +1017,9 @@ class PickleballDatabaseService {
     customerEmail?: string;
     source: "ONLINE" | "PHONE" | "WALKIN";
     paymentStatus: Booking["paymentStatus"];
+    paymentMethod?: Booking["paymentMethod"];
+    paymentScreenshotUrl?: string;
+    paymentUtr?: string;
     discountCode?: string;
     equipmentAddons?: Booking["equipmentAddons"];
     notes?: string;
@@ -1000,6 +1028,7 @@ class PickleballDatabaseService {
   }): { success: boolean; booking?: Booking; error?: string } {
     const state = this.load();
     this.pruneExpiredHolds(state);
+    this.pruneExpiredPendingBookings(state);
 
     const {
       courtId,
@@ -1010,6 +1039,9 @@ class PickleballDatabaseService {
       customerEmail,
       source,
       paymentStatus,
+      paymentMethod = "PAY_AT_VENUE",
+      paymentScreenshotUrl,
+      paymentUtr,
       discountCode,
       equipmentAddons,
       notes,
@@ -1025,6 +1057,20 @@ class PickleballDatabaseService {
     // Check if slot start time has already passed
     if (new Date(startTime).getTime() <= Date.now()) {
       return { success: false, error: "Cannot book a time slot in the past. Please choose an upcoming slot." };
+    }
+
+    // Check duplicate UTR submission
+    if (paymentUtr && paymentUtr.trim()) {
+      const trimmedUtr = paymentUtr.trim();
+      const hasDuplicateUtr = state.bookings.some(
+        (b) => b.paymentUtr === trimmedUtr && b.status !== "CANCELLED"
+      );
+      if (hasDuplicateUtr) {
+        return {
+          success: false,
+          error: `A booking submission with UPI transaction ID / UTR '${trimmedUtr}' has already been received.`,
+        };
+      }
     }
 
     // Atomic Conflict Check
@@ -1117,6 +1163,11 @@ class PickleballDatabaseService {
 
     const finalPrice = Math.max(0, basePrice - discountAmount + addonsTotal);
 
+    const isManualUpi = (paymentMethod === "UPI_MANUAL" || paymentStatus === "PENDING") && Boolean(paymentScreenshotUrl);
+    const bookingStatus: Booking["status"] = isManualUpi ? "PENDING_VERIFICATION" : "CONFIRMED";
+    const finalPaymentStatus: Booking["paymentStatus"] = isManualUpi ? "PENDING" : paymentStatus;
+    const finalPaymentMethod: Booking["paymentMethod"] = isManualUpi ? "UPI_MANUAL" : paymentMethod;
+
     const booking: Booking = {
       id: `BK-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
       courtId,
@@ -1129,8 +1180,11 @@ class PickleballDatabaseService {
       customerPhone,
       customerEmail,
       source,
-      status: "CONFIRMED",
-      paymentStatus,
+      status: bookingStatus,
+      paymentStatus: finalPaymentStatus,
+      paymentMethod: finalPaymentMethod,
+      paymentScreenshotUrl: paymentScreenshotUrl?.trim() || undefined,
+      paymentUtr: paymentUtr?.trim() || undefined,
       totalPrice: finalPrice,
       discountCode,
       discountAmount,
@@ -1157,20 +1211,135 @@ class PickleballDatabaseService {
       id: `audit-${Date.now()}`,
       actorId: staffId || customerPhone,
       actorRole: staffId ? "STAFF" : "CUSTOMER",
-      action: "CREATE_BOOKING",
+      action: isManualUpi ? "SUBMIT_UPI_PAYMENT" : "CREATE_BOOKING",
       entityId: booking.id,
       details: {
         source,
         courtId,
         startTime,
         finalPrice,
-        paymentStatus,
+        paymentStatus: finalPaymentStatus,
+        paymentMethod: finalPaymentMethod,
+        hasScreenshot: Boolean(paymentScreenshotUrl),
+        paymentUtr: paymentUtr || null,
       },
       createdAt: new Date().toISOString(),
     });
 
     this.save(state);
     return { success: true, booking };
+  }
+
+  // 6b. Verify Manual UPI Payment (Owner & Staff)
+  public verifyBookingPayment(params: {
+    bookingId: string;
+    action: "APPROVE" | "REJECT";
+    actor: { id: string; role: string };
+    rejectionReason?: string;
+  }): { success: boolean; booking?: Booking; error?: string } {
+    if (params.actor.role !== "OWNER" && params.actor.role !== "EMPLOYEE") {
+      return { success: false, error: "Forbidden: Staff or Owner access required." };
+    }
+
+    const state = this.load();
+    this.pruneExpiredHolds(state);
+    this.pruneExpiredPendingBookings(state);
+
+    const booking = state.bookings.find((b) => b.id === params.bookingId);
+    if (!booking) {
+      return { success: false, error: "Booking not found." };
+    }
+
+    if (booking.status !== "PENDING_VERIFICATION") {
+      return { success: false, error: `Booking is in '${booking.status}' status and cannot be verified.` };
+    }
+
+    if (params.action === "APPROVE") {
+      // Recheck that slot has not passed
+      if (new Date(booking.startTime).getTime() <= Date.now()) {
+        return { success: false, error: "Cannot approve booking: the scheduled slot has already passed." };
+      }
+
+      // Recheck slot availability against confirmed/completed bookings
+      const hasConflict = state.bookings.some(
+        (b) =>
+          b.id !== booking.id &&
+          b.courtId === booking.courtId &&
+          (b.status === "CONFIRMED" || b.status === "COMPLETED") &&
+          this.hasIntervalOverlap(booking.startTime, booking.endTime, b.startTime, b.endTime)
+      );
+      if (hasConflict) {
+        return { success: false, error: "Slot conflict: another booking was confirmed for this court and time." };
+      }
+
+      const hasBlockConflict = state.blocks.some(
+        (bl) =>
+          bl.courtId === booking.courtId &&
+          this.hasIntervalOverlap(booking.startTime, booking.endTime, bl.startTime, bl.endTime)
+      );
+      if (hasBlockConflict) {
+        return { success: false, error: "Court is blocked for maintenance or tournament during this time." };
+      }
+
+      booking.status = "CONFIRMED";
+      booking.paymentStatus = "PAID_ONLINE";
+      booking.paymentVerifiedBy = params.actor.id;
+      booking.paymentVerifiedAt = new Date().toISOString();
+      booking.updatedAt = new Date().toISOString();
+
+      // Clear any holds on this interval
+      state.holds = state.holds.filter(
+        (h) =>
+          !(
+            h.courtId === booking.courtId &&
+            this.hasIntervalOverlap(booking.startTime, booking.endTime, h.startTime, h.endTime)
+          )
+      );
+
+      state.auditLogs.push({
+        id: `audit-${Date.now()}`,
+        actorId: params.actor.id,
+        actorRole: params.actor.role,
+        action: "APPROVE_UPI_PAYMENT",
+        entityId: booking.id,
+        details: {
+          bookingId: booking.id,
+          courtName: booking.courtName,
+          totalPrice: booking.totalPrice,
+          paymentUtr: booking.paymentUtr || null,
+        },
+        createdAt: new Date().toISOString(),
+      });
+
+      this.save(state);
+      return { success: true, booking };
+    } else {
+      const reason = params.rejectionReason?.trim() || "Payment verification rejected by staff";
+      booking.status = "CANCELLED";
+      booking.cancellationReason = reason;
+      booking.paymentRejectionReason = reason;
+      booking.cancelledAt = new Date().toISOString();
+      booking.paymentVerifiedBy = params.actor.id;
+      booking.paymentVerifiedAt = new Date().toISOString();
+      booking.updatedAt = new Date().toISOString();
+
+      state.auditLogs.push({
+        id: `audit-${Date.now()}`,
+        actorId: params.actor.id,
+        actorRole: params.actor.role,
+        action: "REJECT_UPI_PAYMENT",
+        entityId: booking.id,
+        details: {
+          bookingId: booking.id,
+          reason,
+          paymentUtr: booking.paymentUtr || null,
+        },
+        createdAt: new Date().toISOString(),
+      });
+
+      this.save(state);
+      return { success: true, booking };
+    }
   }
 
   // 6b. Get single booking by ID
@@ -1280,6 +1449,11 @@ class PickleballDatabaseService {
   // 9. GetAll Bookings (Staff/Admin)
   public getAllBookings(): Booking[] {
     const state = this.load();
+    const prunedHolds = this.pruneExpiredHolds(state);
+    const prunedPending = this.pruneExpiredPendingBookings(state);
+    if (prunedHolds || prunedPending) {
+      this.save(state);
+    }
     return state.bookings.sort(
       (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
     );
@@ -1464,15 +1638,18 @@ class PickleballDatabaseService {
   public getPickleballReport() {
     const state = this.load();
     this.pruneExpiredHolds(state);
+    this.pruneExpiredPendingBookings(state);
     const validBookings = state.bookings.filter((b) => b.status !== "CANCELLED");
+    const confirmedBookings = validBookings.filter((b) => b.status === "CONFIRMED" || b.status === "COMPLETED");
+    const pendingVerifications = validBookings.filter((b) => b.status === "PENDING_VERIFICATION");
 
-    const onlineRevenue = validBookings
+    const onlineRevenue = confirmedBookings
       .filter((b) => b.paymentStatus === "PAID_ONLINE")
       .reduce((sum, b) => sum + Number(b.totalPrice), 0);
-    const cashRevenue = validBookings
+    const cashRevenue = confirmedBookings
       .filter((b) => b.paymentStatus === "CASH_COUNTER")
       .reduce((sum, b) => sum + Number(b.totalPrice), 0);
-    const upiCounterRevenue = validBookings
+    const upiCounterRevenue = confirmedBookings
       .filter((b) => b.paymentStatus === "UPI_COUNTER")
       .reduce((sum, b) => sum + Number(b.totalPrice), 0);
 
@@ -1480,12 +1657,14 @@ class PickleballDatabaseService {
     const realizedRevenue = onlineRevenue + cashRevenue + upiCounterRevenue;
 
     // Pending payments still to be collected at reception desk
-    const pendingVenuePayment = validBookings
+    const pendingVenuePayment = confirmedBookings
       .filter((b) => b.paymentStatus === "PAY_AT_VENUE" || b.paymentStatus === "PENDING")
       .reduce((sum, b) => sum + Number(b.totalPrice), 0);
 
-    // Total booked value (realized + pending)
-    const grossBookedValue = validBookings.reduce((sum, b) => sum + Number(b.totalPrice), 0);
+    const pendingVerificationValue = pendingVerifications.reduce((sum, b) => sum + Number(b.totalPrice), 0);
+
+    // Total booked value (realized + desk pending) - excludes unapproved pending verifications
+    const grossBookedValue = confirmedBookings.reduce((sum, b) => sum + Number(b.totalPrice), 0);
 
     const channelBreakdown = {
       online: validBookings.filter((b) => b.source === "ONLINE").length,
@@ -1495,7 +1674,10 @@ class PickleballDatabaseService {
 
     return {
       database: "PICKLEBALL_DATABASE",
-      totalBookings: validBookings.length,
+      totalBookings: confirmedBookings.length,
+      confirmedBookings: confirmedBookings.length,
+      pendingVerificationsCount: pendingVerifications.length,
+      pendingVerificationValue,
       realizedRevenue,
       totalRevenue: realizedRevenue,
       grossBookedValue,

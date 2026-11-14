@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickleballDb } from "@/lib/db/pickleballDb";
 import { enforceRole } from "@/lib/auth/serverAuth";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { supabaseDb } from "@/lib/supabase/supabaseDb";
 import {
   callDjangoApi,
   getBackendMisconfiguredResponse,
@@ -25,6 +27,14 @@ export async function GET(req: NextRequest) {
         actor: auth.actor,
       });
       return toProxyJsonResponse(upstream);
+    }
+
+    if (isSupabaseConfigured()) {
+      const pricingConfig = await supabaseDb.getPricingConfig();
+      return NextResponse.json({
+        success: true,
+        pricingConfig,
+      });
     }
 
     if (isLocalJsonFallbackDisabled()) {
@@ -77,6 +87,24 @@ export async function POST(req: NextRequest) {
         actor: auth.actor,
       });
       return toProxyJsonResponse(upstream);
+    }
+
+    if (isSupabaseConfigured()) {
+      const config = await supabaseDb.updatePricingConfig(
+        {
+          basePricePerHour: resolvedBase !== undefined ? Number(resolvedBase) : undefined,
+          peakSurgePricePerHour: resolvedPeak !== undefined ? Number(resolvedPeak) : undefined,
+          peakHours,
+          isPeakSurgeActive,
+        },
+        auth.actor
+      );
+
+      return NextResponse.json({
+        success: true,
+        pricingConfig: config,
+        message: "Pricing configuration and peak surge price updated successfully",
+      });
     }
 
     if (isLocalJsonFallbackDisabled()) {

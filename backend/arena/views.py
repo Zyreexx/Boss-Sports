@@ -211,6 +211,30 @@ class BookingsCollectionView(APIView):
             return _domain_error_response(exc)
 
 
+class VerifyPaymentView(APIView):
+    permission_classes = [IsStaffActor]
+
+    def post(self, request):
+        actor = resolve_actor(request)
+        booking_id = request.data.get('bookingId')
+        action = request.data.get('action')
+        reason = request.data.get('rejectionReason') or request.data.get('reason') or ''
+        if not booking_id or not action:
+            return Response(
+                {'success': False, 'error': 'bookingId and action (APPROVE or REJECT) are required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            booking = services.verify_booking_payment(booking_id, action, actor, reason)
+            return Response({
+                'success': True,
+                'booking': booking,
+                'message': f"Booking payment {str(action).lower()}ed successfully.",
+            })
+        except services.DomainError as exc:
+            return _domain_error_response(exc)
+
+
 class BookingCancelView(APIView):
     permission_classes = [IsAuthenticatedActor]
 

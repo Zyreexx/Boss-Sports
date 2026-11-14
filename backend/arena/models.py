@@ -84,6 +84,7 @@ class Booking(models.Model):
     STATUS_CHOICES = (
         ('HELD', 'Held'),
         ('CONFIRMED', 'Confirmed'),
+        ('PENDING_VERIFICATION', 'Payment Pending Verification'),
         ('PENDING', 'Pending Payment / Hold'),
         ('COMPLETED', 'Completed'),
         ('CANCELLED', 'Cancelled'),
@@ -101,6 +102,7 @@ class Booking(models.Model):
 
     PAYMENT_METHOD_CHOICES = (
         ('PAY_AT_VENUE', 'Pay at Venue (Cash/Counter UPI)'),
+        ('UPI_MANUAL', 'Manual UPI Transfer'),
         ('RAZORPAY', 'Online Payment Gateway'),
         ('UPI', 'Counter UPI QR'),
         ('CASH', 'Desk Cash'),
@@ -141,6 +143,18 @@ class Booking(models.Model):
     notes = models.TextField(blank=True, default='')
     cancellation_reason = models.TextField(blank=True, default='')
     cancelled_at = models.DateTimeField(null=True, blank=True)
+
+    payment_screenshot_url = models.CharField(max_length=500, blank=True, default='')
+    payment_utr = models.CharField(max_length=64, blank=True, default='')
+    payment_verified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='verified_bookings',
+    )
+    payment_verified_at = models.DateTimeField(null=True, blank=True)
+    payment_rejection_reason = models.TextField(blank=True, default='')
 
     created_by_staff = models.ForeignKey(
         User,

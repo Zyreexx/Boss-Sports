@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickleballDb } from "@/lib/db/pickleballDb";
 import { getAuthenticatedActor } from "@/lib/auth/serverAuth";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { supabaseDb } from "@/lib/supabase/supabaseDb";
 import {
   callDjangoApi,
   getBackendMisconfiguredResponse,
@@ -34,16 +36,27 @@ export async function POST(req: NextRequest) {
       return toProxyJsonResponse(upstream);
     }
 
-    if (isLocalJsonFallbackDisabled()) {
-      return getBackendMisconfiguredResponse();
-    }
+    let result: { success: boolean; hold?: any; error?: string };
 
-    const result = pickleballDb.placeHold({
-      courtId,
-      startTime,
-      endTime,
-      sessionId,
-    });
+    if (isSupabaseConfigured()) {
+      result = await supabaseDb.placeHold({
+        courtId,
+        startTime,
+        endTime,
+        sessionId,
+      });
+    } else {
+      if (isLocalJsonFallbackDisabled()) {
+        return getBackendMisconfiguredResponse();
+      }
+
+      result = pickleballDb.placeHold({
+        courtId,
+        startTime,
+        endTime,
+        sessionId,
+      });
+    }
 
     if (!result.success) {
       return NextResponse.json(
@@ -88,6 +101,14 @@ export async function DELETE(req: NextRequest) {
         actor,
       });
       return toProxyJsonResponse(upstream);
+    }
+
+    if (isSupabaseConfigured()) {
+      await supabaseDb.releaseHold({ sessionId, holdId });
+      return NextResponse.json({
+        success: true,
+        message: "Hold released successfully",
+      });
     }
 
     if (isLocalJsonFallbackDisabled()) {

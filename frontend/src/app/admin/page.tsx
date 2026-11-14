@@ -21,14 +21,16 @@ import {
   Tag,
   FileText,
   UserCheck,
+  ShieldCheck,
 } from "lucide-react";
 import LoginModal from "@/components/LoginModal";
 import CourtManager from "@/components/CourtManager";
 import GalleryManager from "@/components/GalleryManager";
+import PendingVerificationsView from "@/components/PendingVerificationsView";
 import { formatBookingDuration } from "@/lib/utils/duration";
 
 export default function OwnerAdminPage() {
-  const [activeTab, setActiveTab] = useState<"reports" | "courts" | "gallery" | "pricing" | "schedule" | "blocks">("reports");
+  const [activeTab, setActiveTab] = useState<"reports" | "courts" | "gallery" | "pricing" | "schedule" | "blocks" | "verifications">("reports");
 
   // --- Auth State ---
   const [currentUser, setCurrentUser] = useState<any | null>(null);
@@ -697,6 +699,25 @@ export default function OwnerAdminPage() {
               <Lock className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>Court Maintenance Blocks</span>
             </button>
+
+            <button
+              type="button"
+              aria-pressed={activeTab === "verifications"}
+              onClick={() => setActiveTab("verifications")}
+              className={`flex items-center gap-2 px-4 py-2.5 min-h-[42px] w-full sm:w-auto justify-start sm:justify-center rounded-xl font-semibold text-xs tracking-wide transition-all ${
+                activeTab === "verifications"
+                  ? "bg-[#c7f711] text-black shadow-lg shadow-[#c7f711]/20 font-bold"
+                  : "text-white/70 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span>UPI Verifications</span>
+              {reportData?.summary?.pendingVerificationsCount > 0 && (
+                <span className="bg-amber-400 text-black text-[10px] font-extrabold px-1.5 py-0.5 rounded-full ml-1">
+                  {reportData.summary.pendingVerificationsCount}
+                </span>
+              )}
+            </button>
           </div>
 
           <button
@@ -998,6 +1019,14 @@ export default function OwnerAdminPage() {
                     <span className="text-white/60">Pending Collection at Venue:</span>
                     <span className="font-bold text-amber-400 font-mono shrink-0">₹{reportData.pickleballDatabase.pendingVenuePayment ?? 0}</span>
                   </div>
+                  {reportData.pickleballDatabase.pendingVerificationsCount > 0 && (
+                    <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5 text-xs bg-amber-500/10 px-2 rounded-lg">
+                      <span className="text-amber-300 font-medium">Pending UPI Verifications:</span>
+                      <span className="font-bold text-amber-300 font-mono shrink-0">
+                        {reportData.pickleballDatabase.pendingVerificationsCount} bookings (₹{reportData.pickleballDatabase.pendingVerificationValue ?? 0})
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5 text-xs">
                     <span className="text-white/60">Gross Booked Value (All Active):</span>
                     <span className="font-bold text-white font-mono shrink-0">₹{reportData.pickleballDatabase.grossBookedValue ?? 0}</span>
@@ -1610,6 +1639,13 @@ export default function OwnerAdminPage() {
               </button>
             </form>
           </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 7: MANUAL UPI PAYMENT VERIFICATIONS */}
+        {/* ========================================================================= */}
+        {activeTab === "verifications" && (
+          <PendingVerificationsView onStatusChange={() => fetchReports()} />
         )}
           </>
         )}

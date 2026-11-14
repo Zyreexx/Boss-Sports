@@ -22,6 +22,11 @@ dist/
 **/users_auth.json
 **/pickleball_database.json
 
+# Private file uploads & storage
+storage/
+**/storage/
+**/media/payment_proofs/
+
 # Misc
 .DS_Store
 *.pem

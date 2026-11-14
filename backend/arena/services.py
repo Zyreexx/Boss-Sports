@@ -45,7 +45,7 @@ def format_duration_display(minutes: int) -> str:
 
 COLLECTED_PAYMENT_STATUSES = {'PAID_ONLINE', 'CASH_COUNTER', 'UPI_COUNTER', 'PAID'}
 PENDING_PAYMENT_STATUSES = {'PAY_AT_VENUE', 'PENDING'}
-BOOKABLE_PAYMENT_STATUSES = {'PAY_AT_VENUE', 'CASH_COUNTER', 'UPI_COUNTER', 'PENDING'}
+BOOKABLE_PAYMENT_STATUSES = {'PAY_AT_VENUE', 'CASH_COUNTER', 'UPI_COUNTER', 'PENDING', 'PAID_ONLINE'}
 STAFF_UPDATABLE_PAYMENT_STATUSES = {'CASH_COUNTER', 'UPI_COUNTER', 'PAID_ONLINE'}
 VALID_BLOCK_REASONS = {'MAINTENANCE', 'TOURNAMENT', 'COACHING', 'PRIVATE_EVENT'}
 
@@ -256,6 +256,12 @@ def serialize_booking(b: Booking, include_pii: bool = True) -> dict:
         'source': b.source,
         'status': b.status,
         'paymentStatus': b.payment_status,
+        'paymentMethod': b.payment_method,
+        'paymentScreenshotUrl': b.payment_screenshot_url or None,
+        'paymentUtr': b.payment_utr or None,
+        'paymentVerifiedBy': b.payment_verified_by.public_id if b.payment_verified_by else None,
+        'paymentVerifiedAt': to_utc_iso(b.payment_verified_at) if b.payment_verified_at else None,
+        'paymentRejectionReason': b.payment_rejection_reason or None,
         'totalPrice': float(b.total_price),
         'discountCode': b.discount_code or None,
         'discountAmount': float(b.discount_amount or 0),
@@ -372,10 +378,37 @@ def _check_date_not_closed(start_at: datetime):
         raise DomainError(f"Arena closed: {reason}", status_code=409)
 
 
+def get_pending_payment_ttl_minutes() -> int:
+    try:
+        return max(5, int(os.environ.get('PENDING_PAYMENT_TTL_MINUTES', 30)))
+    except (ValueError, TypeError):
+        return 30
+
+
+def expire_stale_pending_verification_bookings() -> int:
+    now = timezone.now()
+    ttl_minutes = get_pending_payment_ttl_minutes()
+    cutoff = now - timedelta(minutes=ttl_minutes)
+    stale_bookings = list(
+        Booking.objects.filter(
+            status='PENDING_VERIFICATION',
+            created_at__lte=cutoff,
+        )
+    )
+    for b in stale_bookings:
+        b.status = 'CANCELLED'
+        b.cancellation_reason = f"Payment verification timed out ({ttl_minutes} minutes elapsed without staff approval)."
+        b.payment_rejection_reason = f"Verification timed out after {ttl_minutes} minutes."
+        b.cancelled_at = now
+        b.save(update_fields=['status', 'cancellation_reason', 'payment_rejection_reason', 'cancelled_at', 'updated_at'])
+    return len(stale_bookings)
+
+
 def get_availability(date_str: str, court_id: Optional[str] = None, viewer_is_staff: bool = False) -> dict:
     if not re.match(r'^\d{4}-\d{2}-\d{2}$', date_str):
         raise DomainError("Invalid date format. Expected YYYY-MM-DD.", status_code=400)
 
+    expire_stale_pending_verification_bookings()
     now = timezone.now()
     pricing = PricingConfig.get_current()
     pricing_data = serialize_pricing(pricing)
@@ -760,21 +793,35 @@ def create_booking(params: dict, actor: Optional[ActorContext]) -> dict:
         source = 'ONLINE'
 
     requested_payment = str(params.get('paymentStatus') or 'PAY_AT_VENUE').upper()
-    if requested_payment == 'PAID_ONLINE':
+    requested_method = str(params.get('paymentMethod') or '').upper()
+    payment_screenshot_url = str(params.get('paymentScreenshotUrl') or params.get('payment_screenshot_url') or '').strip()
+    payment_utr = str(params.get('paymentUtr') or params.get('payment_utr') or '').strip()
+
+    is_manual_upi = (requested_method == 'UPI_MANUAL' or requested_payment == 'PENDING') and bool(payment_screenshot_url)
+
+    if requested_payment == 'PAID_ONLINE' and not is_manual_upi and not is_staff:
         raise DomainError(
             "Online payment settlement requires verified payment gateway authorization.",
             status_code=400,
         )
-    if is_staff and source in ('WALKIN', 'PHONE') and requested_payment in BOOKABLE_PAYMENT_STATUSES:
-        payment_status = requested_payment
-    else:
-        payment_status = 'PAY_AT_VENUE'
 
-    payment_method = (
-        'CASH' if payment_status == 'CASH_COUNTER'
-        else 'UPI' if payment_status == 'UPI_COUNTER'
-        else 'PAY_AT_VENUE'
-    )
+    if is_manual_upi:
+        source = 'ONLINE'
+        payment_method = 'UPI_MANUAL'
+        payment_status = 'PENDING'
+        booking_status = 'PENDING_VERIFICATION'
+    else:
+        booking_status = 'CONFIRMED'
+        if is_staff and source in ('WALKIN', 'PHONE') and requested_payment in BOOKABLE_PAYMENT_STATUSES:
+            payment_status = requested_payment
+        else:
+            payment_status = 'PAY_AT_VENUE'
+        payment_method = (
+            'CASH' if payment_status == 'CASH_COUNTER'
+            else 'UPI' if payment_status == 'UPI_COUNTER'
+            else 'UPI_MANUAL' if payment_status == 'PAID_ONLINE'
+            else 'PAY_AT_VENUE'
+        )
 
     start_at = parse_iso_datetime(start_time_str, 'startTime')
     end_at = parse_iso_datetime(end_time_str, 'endTime')
@@ -785,6 +832,7 @@ def create_booking(params: dict, actor: Optional[ActorContext]) -> dict:
         raise DomainError("Cannot book a time slot in the past. Please choose an upcoming slot.", status_code=400)
 
     _check_date_not_closed(start_at)
+    expire_stale_pending_verification_bookings()
     actor_user = _resolve_actor_user(actor)
 
     with transaction.atomic():
@@ -796,6 +844,15 @@ def create_booking(params: dict, actor: Optional[ActorContext]) -> dict:
             raise DomainError("Selected court is currently inactive.", status_code=409)
 
         SlotHold.objects.filter(court=court, expires_at__lte=now).delete()
+
+        # Prevent duplicate UTR submission
+        if is_manual_upi and payment_utr:
+            existing_utr = Booking.objects.filter(payment_utr=payment_utr).exclude(status='CANCELLED').exists()
+            if existing_utr:
+                raise DomainError(
+                    f"A booking submission with UPI transaction ID / UTR '{payment_utr}' has already been received.",
+                    status_code=409,
+                )
 
         if Booking.objects.filter(
             court=court,
@@ -862,8 +919,10 @@ def create_booking(params: dict, actor: Optional[ActorContext]) -> dict:
                 equipment_addons=clean_addons,
                 payment_status=payment_status,
                 payment_method=payment_method,
-                status='CONFIRMED',
+                status=booking_status,
                 notes=notes,
+                payment_screenshot_url=payment_screenshot_url,
+                payment_utr=payment_utr,
                 created_by_staff=staff_user,
                 staff_identifier=staff_identifier,
             )
@@ -878,7 +937,7 @@ def create_booking(params: dict, actor: Optional[ActorContext]) -> dict:
 
         record_audit_log(
             actor=actor,
-            action='CREATE_BOOKING',
+            action='SUBMIT_UPI_PAYMENT' if booking_status == 'PENDING_VERIFICATION' else 'CREATE_BOOKING',
             entity_id=booking.public_id,
             details={
                 'source': source,
@@ -886,12 +945,112 @@ def create_booking(params: dict, actor: Optional[ActorContext]) -> dict:
                 'startTime': to_utc_iso(start_at),
                 'finalPrice': float(final_price),
                 'paymentStatus': payment_status,
+                'status': booking_status,
+                'paymentMethod': payment_method,
+                'hasScreenshot': bool(payment_screenshot_url),
+                'paymentUtr': payment_utr,
             },
             fallback_actor_id=normalize_phone_digits(customer_phone) or customer_phone,
             fallback_role='CUSTOMER',
         )
 
         return serialize_booking(booking, include_pii=True)
+
+
+def verify_booking_payment(
+    booking_id: str,
+    action: str,
+    actor: ActorContext,
+    rejection_reason: str = '',
+) -> dict:
+    if not actor.is_staff_member():
+        raise DomainError("Forbidden: Staff or Owner access required.", status_code=403)
+
+    action_clean = str(action or '').strip().upper()
+    if action_clean not in ('APPROVE', 'REJECT'):
+        raise DomainError("Action must be 'APPROVE' or 'REJECT'.", status_code=400)
+
+    now = timezone.now()
+    expire_stale_pending_verification_bookings()
+
+    with transaction.atomic():
+        booking = find_booking(booking_id)
+        if not booking:
+            raise DomainError("Booking not found.", status_code=404)
+        booking = Booking.objects.select_for_update().select_related('court', 'user').get(id=booking.id)
+
+        if booking.status != 'PENDING_VERIFICATION':
+            raise DomainError(f"Booking is in '{booking.status}' status and cannot be verified.", status_code=400)
+
+        actor_user = _resolve_actor_user(actor)
+
+        if action_clean == 'APPROVE':
+            # Recheck that the slot has not already passed
+            if booking.start_at <= now:
+                raise DomainError("Cannot approve booking: the scheduled slot has already passed.", status_code=400)
+
+            # Recheck that the slot is still available (no conflicting CONFIRMED / COMPLETED booking)
+            conflict = Booking.objects.filter(
+                court=booking.court,
+                start_at__lt=booking.end_at,
+                end_at__gt=booking.start_at,
+                status__in=('CONFIRMED', 'COMPLETED'),
+            ).exclude(id=booking.id).exists()
+            if conflict:
+                raise DomainError("Slot conflict: another booking was confirmed for this court and time.", status_code=409)
+
+            # Recheck schedule blocks
+            block_conflict = ScheduleBlock.objects.filter(
+                court=booking.court,
+                start_at__lt=booking.end_at,
+                end_at__gt=booking.start_at,
+            ).exists()
+            if block_conflict:
+                raise DomainError("Court is blocked for maintenance or tournament during this time.", status_code=409)
+
+            booking.status = 'CONFIRMED'
+            booking.payment_status = 'PAID_ONLINE'
+            booking.payment_verified_by = actor_user
+            booking.payment_verified_at = now
+            booking.save(update_fields=['status', 'payment_status', 'payment_verified_by', 'payment_verified_at', 'updated_at'])
+
+            # Clear any holds on this interval
+            SlotHold.objects.filter(court=booking.court, start_at__lt=booking.end_at, end_at__gt=booking.start_at).delete()
+
+            record_audit_log(
+                actor=actor,
+                action='APPROVE_UPI_PAYMENT',
+                entity_id=booking.public_id,
+                details={
+                    'bookingId': booking.public_id,
+                    'courtName': booking.court.name,
+                    'totalPrice': float(booking.total_price),
+                    'paymentUtr': booking.payment_utr,
+                },
+            )
+            return serialize_booking(booking, include_pii=True)
+
+        else:  # REJECT
+            reason = str(rejection_reason or 'Payment verification rejected by staff').strip()
+            booking.status = 'CANCELLED'
+            booking.cancellation_reason = reason
+            booking.payment_rejection_reason = reason
+            booking.cancelled_at = now
+            booking.payment_verified_by = actor_user
+            booking.payment_verified_at = now
+            booking.save(update_fields=['status', 'cancellation_reason', 'payment_rejection_reason', 'cancelled_at', 'payment_verified_by', 'payment_verified_at', 'updated_at'])
+
+            record_audit_log(
+                actor=actor,
+                action='REJECT_UPI_PAYMENT',
+                entity_id=booking.public_id,
+                details={
+                    'bookingId': booking.public_id,
+                    'reason': reason,
+                    'paymentUtr': booking.payment_utr,
+                },
+            )
+            return serialize_booking(booking, include_pii=True)
 
 
 def list_bookings_for_actor(actor: ActorContext, phone: Optional[str] = None, date_filter: Optional[str] = None) -> list[dict]:
