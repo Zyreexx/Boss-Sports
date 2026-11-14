@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pickleballDb } from "@/lib/db/pickleballDb";
+import { pickleballDb, defaultGalleryItems } from "@/lib/db/pickleballDb";
 import { enforceRole, getAuthenticatedActor } from "@/lib/auth/serverAuth";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 import {
@@ -27,7 +27,13 @@ export async function GET(req: NextRequest) {
     }
 
     if (isSupabaseConfigured()) {
-      const items = pickleballDb.getGalleryItems();
+      let items = defaultGalleryItems;
+      try {
+        const dbItems = pickleballDb.getGalleryItems();
+        if (dbItems && dbItems.length > 0) items = dbItems;
+      } catch {
+        // Fallback to in-memory default items on serverless
+      }
       return NextResponse.json({ success: true, items });
     }
 
@@ -84,7 +90,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (isSupabaseConfigured()) {
-      const items = pickleballDb.getGalleryItems();
+      let items = defaultGalleryItems;
+      try {
+        const dbItems = pickleballDb.getGalleryItems();
+        if (dbItems && dbItems.length > 0) items = dbItems;
+      } catch {
+        // Fallback to in-memory default items on serverless
+      }
       return NextResponse.json({ success: true, items });
     }
 
@@ -149,7 +161,13 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (isSupabaseConfigured()) {
-      const items = pickleballDb.getGalleryItems();
+      let items = defaultGalleryItems;
+      try {
+        const dbItems = pickleballDb.getGalleryItems();
+        if (dbItems && dbItems.length > 0) items = dbItems;
+      } catch {
+        // Fallback to in-memory default items on serverless
+      }
       return NextResponse.json({ success: true, items });
     }
 
@@ -200,7 +218,13 @@ export async function DELETE(req: NextRequest) {
     }
 
     if (isSupabaseConfigured()) {
-      const items = pickleballDb.getGalleryItems();
+      let items = defaultGalleryItems;
+      try {
+        const dbItems = pickleballDb.getGalleryItems();
+        if (dbItems && dbItems.length > 0) items = dbItems;
+      } catch {
+        // Fallback to in-memory default items on serverless
+      }
       return NextResponse.json({ success: true, items });
     }
 

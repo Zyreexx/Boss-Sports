@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authDb } from "@/lib/auth/authDb";
 import { setSessionCookie } from "@/lib/auth/serverAuth";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { supabaseDb } from "@/lib/supabase/supabaseDb";
 import {
   callDjangoApi,
   getBackendMisconfiguredResponse,
@@ -171,17 +173,32 @@ export async function POST(req: NextRequest) {
       return response;
     }
 
-    if (isLocalJsonFallbackDisabled()) {
-      return getBackendMisconfiguredResponse();
-    }
+    let result: {
+      success: boolean;
+      user: any;
+      role?: string;
+      redirectUrl: string;
+      token: string;
+    };
 
-    // Upsert user in local fallback Auth database (dev/test only)
-    const result = authDb.findOrCreateGoogleUser({
-      email,
-      name,
-      avatar,
-      googleId,
-    });
+    if (isSupabaseConfigured()) {
+      result = await supabaseDb.findOrCreateGoogleUser({
+        email,
+        name,
+        avatar,
+        googleId,
+      });
+    } else {
+      if (isLocalJsonFallbackDisabled()) {
+        return getBackendMisconfiguredResponse();
+      }
+      result = authDb.findOrCreateGoogleUser({
+        email,
+        name,
+        avatar,
+        googleId,
+      });
+    }
 
     const response = NextResponse.json({
       success: true,

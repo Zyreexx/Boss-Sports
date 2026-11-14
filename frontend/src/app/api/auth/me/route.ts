@@ -5,6 +5,8 @@ import {
   getAuthenticatedActor,
   SESSION_COOKIE_NAME,
 } from "@/lib/auth/serverAuth";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { supabaseDb } from "@/lib/supabase/supabaseDb";
 import {
   callDjangoApi,
   getBackendMisconfiguredResponse,
@@ -19,18 +21,19 @@ export async function GET(req: NextRequest) {
   try {
     const actor = getAuthenticatedActor(req);
 
-    if (isDjangoBackendConfigured()) {
-      if (!actor) {
-        const response = NextResponse.json(
-          { success: false, authenticated: false, user: null },
-          { headers: { "Cache-Control": "no-store" } }
-        );
-        if (req.cookies.get(SESSION_COOKIE_NAME)?.value) {
-          clearSessionCookie(response, req);
-        }
-        return response;
+    // If there is no authenticated actor/cookie, immediately return unauthenticated state
+    if (!actor) {
+      const response = NextResponse.json(
+        { success: false, authenticated: false, user: null },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+      if (req.cookies.get(SESSION_COOKIE_NAME)?.value) {
+        clearSessionCookie(response, req);
       }
+      return response;
+    }
 
+    if (isDjangoBackendConfigured()) {
       const upstream = await callDjangoApi({
         path: "/api/auth/me/",
         method: "GET",
@@ -55,13 +58,27 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    if (isLocalJsonFallbackDisabled()) {
-      return getBackendMisconfiguredResponse();
+    let user: any = null;
+
+    if (isSupabaseConfigured()) {
+      user = await supabaseDb.getUserById(actor.id);
+      // Fall back to actor session data if app_users record is not found
+      if (!user) {
+        user = {
+          id: actor.id,
+          email: actor.email,
+          name: actor.name,
+          role: actor.role,
+        };
+      }
+    } else {
+      if (isLocalJsonFallbackDisabled()) {
+        return getBackendMisconfiguredResponse();
+      }
+      user = authDb.getUserById(actor.id);
     }
 
-    const user = actor ? authDb.getUserById(actor.id) : null;
-
-    if (!actor || !user) {
+    if (!user) {
       const response = NextResponse.json(
         { success: false, authenticated: false, user: null },
         { headers: { "Cache-Control": "no-store" } }

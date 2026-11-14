@@ -81,10 +81,6 @@ export async function POST(req: NextRequest) {
     }
 
     // Local development fallback only (when DJANGO_API_URL is unset and not in production)
-    const ext = path.extname(file.name) || (file.type.startsWith("video") ? ".mp4" : ".jpg");
-    const baseName = path.basename(file.name, ext).replace(/[^a-zA-Z0-9_-]/g, "_");
-    const uniqueFileName = `${baseName}_${Date.now()}${ext}`;
-
     const publicBase = fs.existsSync(path.join(process.cwd(), "frontend", "public"))
       ? path.join(process.cwd(), "frontend", "public")
       : path.join(process.cwd(), "public");

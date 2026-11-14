@@ -1297,6 +1297,101 @@ export const supabaseDb = {
     return safeUser;
   },
 
+  async findOrCreateGoogleUser(params: {
+    email: string;
+    name: string;
+    avatar?: string;
+    googleId?: string;
+  }): Promise<{
+    success: boolean;
+    user: Omit<UserAccount, "passwordHash">;
+    redirectUrl: string;
+    token: string;
+  }> {
+    const supabase = getSupabaseAdmin();
+    const cleanEmail = params.email.trim().toLowerCase();
+
+    const { data: existingUser } = await supabase
+      .from("app_users")
+      .select("*")
+      .eq("email", cleanEmail)
+      .maybeSingle();
+
+    if (existingUser) {
+      if ((params.avatar && !existingUser.avatar) || (params.name && !existingUser.name)) {
+        await supabase
+          .from("app_users")
+          .update({
+            ...(params.avatar && !existingUser.avatar ? { avatar: params.avatar } : {}),
+            ...(params.name && !existingUser.name ? { name: params.name } : {}),
+            ...(params.googleId && !existingUser.google_id ? { google_id: params.googleId } : {}),
+          })
+          .eq("id", existingUser.id);
+      }
+
+      let redirectUrl = "/";
+      if (existingUser.role === "OWNER") redirectUrl = "/admin";
+      else if (existingUser.role === "EMPLOYEE") redirectUrl = "/staff";
+      else redirectUrl = "/profile";
+
+      const token = `boss_tk_${existingUser.role.toLowerCase()}_${existingUser.id}_${Date.now()}`;
+      const user = rowToAppUser(existingUser);
+      const { passwordHash: _dropped, ...safeUser } = user;
+      return { success: true, user: safeUser, redirectUrl, token };
+    }
+
+    const ownerEmails = (process.env.OWNER_EMAILS || process.env.OWNER_EMAIL || "")
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+    const staffEmails = (process.env.STAFF_EMAILS || process.env.STAFF_EMAIL || "")
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+
+    let role: UserRole = "CUSTOMER";
+    if (ownerEmails.includes(cleanEmail)) {
+      role = "OWNER";
+    } else if (staffEmails.includes(cleanEmail)) {
+      role = "EMPLOYEE";
+    }
+
+    let redirectUrl = "/";
+    if (role === "OWNER") redirectUrl = "/admin";
+    else if (role === "EMPLOYEE") redirectUrl = "/staff";
+    else redirectUrl = "/profile";
+
+    const newUserId = `usr-${Date.now()}`;
+    const newUserRow = {
+      id: newUserId,
+      email: cleanEmail,
+      name: params.name,
+      role,
+      avatar: params.avatar || null,
+      google_id: params.googleId || null,
+      is_active: true,
+      created_at: new Date().toISOString(),
+    };
+
+    await supabase.from("app_users").insert(newUserRow);
+
+    const token = `boss_tk_${role.toLowerCase()}_${newUserId}_${Date.now()}`;
+    return {
+      success: true,
+      user: {
+        id: newUserId,
+        email: cleanEmail,
+        phone: "",
+        name: params.name,
+        role,
+        avatar: params.avatar,
+        createdAt: newUserRow.created_at,
+      },
+      redirectUrl,
+      token,
+    };
+  },
+
   // 10. VENUE REPORTS
   async getPickleballReport() {
     await this.pruneExpired();

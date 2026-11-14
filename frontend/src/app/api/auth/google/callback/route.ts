@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authDb } from "@/lib/auth/authDb";
 import { setSessionCookie } from "@/lib/auth/serverAuth";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { supabaseDb } from "@/lib/supabase/supabaseDb";
 import {
   callDjangoApi,
   isDjangoBackendConfigured,
@@ -91,6 +93,14 @@ export async function GET(req: NextRequest) {
         );
       }
       userResult = { user: upstream.data.user, redirectUrl: upstream.data.redirectUrl || "/profile" };
+    } else if (isSupabaseConfigured()) {
+      const sbResult = await supabaseDb.findOrCreateGoogleUser({
+        email,
+        name,
+        avatar,
+        googleId,
+      });
+      userResult = { user: sbResult.user, redirectUrl: sbResult.redirectUrl || "/profile" };
     } else if (isLocalJsonFallbackDisabled()) {
       return NextResponse.redirect(
         `${appUrl}/?auth_error=${encodeURIComponent("Backend persistence service is unavailable")}`
