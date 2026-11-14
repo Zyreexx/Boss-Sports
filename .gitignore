@@ -21,6 +21,8 @@ dist/
 # User credential & legacy JSON database files
 **/users_auth.json
 **/pickleball_database.json
+frontend/data/
+**/data/*.tmp
 
 # Private file uploads & storage
 storage/
