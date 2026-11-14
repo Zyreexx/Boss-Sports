@@ -197,11 +197,13 @@ ON CONFLICT (id) DO UPDATE SET
     file_size_limit = 5242880,
     allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp'];
 
--- Storage Access Policies
+-- Storage Access Policies (idempotent)
+DROP POLICY IF EXISTS "Public read for payment proofs" ON storage.objects;
 CREATE POLICY "Public read for payment proofs"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'payment-proofs');
 
+DROP POLICY IF EXISTS "Anyone can upload payment proof screenshot" ON storage.objects;
 CREATE POLICY "Anyone can upload payment proof screenshot"
 ON storage.objects FOR INSERT
 WITH CHECK (bucket_id = 'payment-proofs');
@@ -217,18 +219,38 @@ ALTER TABLE public.discounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY;
 
--- Permissive Service-Role & Public Read Policies
--- (Service role key bypasses RLS automatically; these allow read access for public availability)
+-- Permissive Service-Role & Public Read Policies (idempotent)
+DROP POLICY IF EXISTS "Public read active courts" ON public.courts;
 CREATE POLICY "Public read active courts" ON public.courts FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read pricing" ON public.pricing_config;
 CREATE POLICY "Public read pricing" ON public.pricing_config FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read schedules" ON public.arena_schedules;
 CREATE POLICY "Public read schedules" ON public.arena_schedules FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read active schedule blocks" ON public.schedule_blocks;
 CREATE POLICY "Public read active schedule blocks" ON public.schedule_blocks FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read active holds" ON public.slot_holds;
 CREATE POLICY "Public read active holds" ON public.slot_holds FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public insert slot holds" ON public.slot_holds;
 CREATE POLICY "Public insert slot holds" ON public.slot_holds FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public delete slot holds" ON public.slot_holds;
 CREATE POLICY "Public delete slot holds" ON public.slot_holds FOR DELETE USING (true);
+
+DROP POLICY IF EXISTS "Public read active bookings" ON public.bookings;
 CREATE POLICY "Public read active bookings" ON public.bookings FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public insert bookings" ON public.bookings;
 CREATE POLICY "Public insert bookings" ON public.bookings FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service full access bookings" ON public.bookings;
 CREATE POLICY "Service full access bookings" ON public.bookings FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Public read discounts" ON public.discounts;
 CREATE POLICY "Public read discounts" ON public.discounts FOR SELECT USING (true);
 
 -- Done!

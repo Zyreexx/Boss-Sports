@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pickleballDb } from "@/lib/db/pickleballDb";
 import { enforceRole, getAuthenticatedActor } from "@/lib/auth/serverAuth";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
 import {
   callDjangoApi,
   getBackendMisconfiguredResponse,
@@ -23,6 +24,11 @@ export async function GET(req: NextRequest) {
         timeoutMs: 25_000,
       });
       return toProxyJsonResponse(upstream);
+    }
+
+    if (isSupabaseConfigured()) {
+      const items = pickleballDb.getGalleryItems();
+      return NextResponse.json({ success: true, items });
     }
 
     if (isLocalJsonFallbackDisabled()) {
@@ -75,6 +81,11 @@ export async function POST(req: NextRequest) {
         actor: auth.actor,
       });
       return toProxyJsonResponse(upstream);
+    }
+
+    if (isSupabaseConfigured()) {
+      const items = pickleballDb.getGalleryItems();
+      return NextResponse.json({ success: true, items });
     }
 
     if (isLocalJsonFallbackDisabled()) {
@@ -137,6 +148,11 @@ export async function PATCH(req: NextRequest) {
       return toProxyJsonResponse(upstream);
     }
 
+    if (isSupabaseConfigured()) {
+      const items = pickleballDb.getGalleryItems();
+      return NextResponse.json({ success: true, items });
+    }
+
     if (isLocalJsonFallbackDisabled()) {
       return getBackendMisconfiguredResponse();
     }
@@ -181,6 +197,11 @@ export async function DELETE(req: NextRequest) {
         actor: auth.actor,
       });
       return toProxyJsonResponse(upstream);
+    }
+
+    if (isSupabaseConfigured()) {
+      const items = pickleballDb.getGalleryItems();
+      return NextResponse.json({ success: true, items });
     }
 
     if (isLocalJsonFallbackDisabled()) {

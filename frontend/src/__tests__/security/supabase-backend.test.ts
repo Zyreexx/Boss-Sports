@@ -12,25 +12,24 @@ import {
   hasIntervalOverlap,
 } from "../../lib/supabase/supabaseDb";
 
-describe("Cloudflare & Supabase Migration Integrity Suite", () => {
-  it("Scenario 1: Cloudflare Workers vinext configuration is configured and old Pages config removed", () => {
+describe("Supabase Backend Integration Suite", () => {
+  it("Scenario 1: Project has clean standard Next.js architecture without Cloudflare/vinext lock-in", () => {
     const wranglerJsoncPath = path.resolve(process.cwd(), "wrangler.jsonc");
     const wranglerTomlPath = path.resolve(process.cwd(), "wrangler.toml");
     const viteConfigPath = path.resolve(process.cwd(), "vite.config.ts");
+    const nextConfigPath = path.resolve(process.cwd(), "next.config.mjs");
+    const pkgPath = path.resolve(process.cwd(), "package.json");
 
-    assert.ok(fs.existsSync(wranglerJsoncPath), "wrangler.jsonc must exist");
-    assert.ok(!fs.existsSync(wranglerTomlPath), "wrangler.toml should be removed (old Pages config)");
-    assert.ok(fs.existsSync(viteConfigPath), "vite.config.ts must exist for vinext");
+    assert.ok(!fs.existsSync(wranglerJsoncPath), "wrangler.jsonc should be removed");
+    assert.ok(!fs.existsSync(wranglerTomlPath), "wrangler.toml should be removed");
+    assert.ok(!fs.existsSync(viteConfigPath), "vite.config.ts should be removed");
+    assert.ok(fs.existsSync(nextConfigPath), "next.config.mjs must exist");
 
-    const wranglerContent = fs.readFileSync(wranglerJsoncPath, "utf-8");
-    assert.ok(wranglerContent.includes("nodejs_compat"), "wrangler.jsonc must include nodejs_compat flag");
-    assert.ok(wranglerContent.includes("vinext/server/fetch-handler"), "wrangler.jsonc must have vinext fetch-handler as main");
-    assert.ok(wranglerContent.includes("dist/client"), "wrangler.jsonc must configure dist/client assets");
-    assert.equal(wranglerContent.includes("pages_build_output_dir"), false, "pages_build_output_dir must be removed");
-
-    const viteContent = fs.readFileSync(viteConfigPath, "utf-8");
-    assert.ok(viteContent.includes("vinext"), "vite.config.ts must include vinext plugin");
-    assert.ok(viteContent.includes("@cloudflare/vite-plugin"), "vite.config.ts must include @cloudflare/vite-plugin");
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+    assert.ok(pkg.dependencies["@supabase/supabase-js"], "@supabase/supabase-js must be installed");
+    assert.ok(pkg.dependencies["next"], "next must be installed");
+    assert.equal(pkg.dependencies["vinext"], undefined, "vinext should be removed");
+    assert.equal(pkg.devDependencies?.["@cloudflare/vite-plugin"], undefined, "@cloudflare/vite-plugin should be removed");
   });
 
   it("Scenario 2: Supabase schema migration file exists with complete DDL and storage bucket", () => {

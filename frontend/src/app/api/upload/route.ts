@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { enforceRole } from "@/lib/auth/serverAuth";
+import { isSupabaseConfigured, getSupabaseAdmin } from "@/lib/supabase/server";
 import {
   callDjangoApi,
   getBackendMisconfiguredResponse,
@@ -45,6 +46,34 @@ export async function POST(req: NextRequest) {
         timeoutMs: 25_000,
       });
       return toProxyJsonResponse(upstream);
+    }
+
+    const ext = path.extname(file.name) || (file.type.startsWith("video") ? ".mp4" : ".jpg");
+    const baseName = path.basename(file.name, ext).replace(/[^a-zA-Z0-9_-]/g, "_");
+    const uniqueFileName = `${baseName}_${Date.now()}${ext}`;
+    const mediaType = file.type.startsWith("video") ? "video" : "image";
+
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabaseAdmin();
+      const { error: uploadError } = await supabase.storage
+        .from("payment-proofs")
+        .upload(`uploads/${uniqueFileName}`, buffer, {
+          contentType: file.type || "application/octet-stream",
+          upsert: true,
+        });
+
+      if (!uploadError) {
+        const { data: publicData } = supabase.storage
+          .from("payment-proofs")
+          .getPublicUrl(`uploads/${uniqueFileName}`);
+
+        return NextResponse.json({
+          success: true,
+          url: publicData.publicUrl,
+          fileName: uniqueFileName,
+          type: mediaType,
+        });
+      }
     }
 
     if (isLocalJsonFallbackDisabled()) {
