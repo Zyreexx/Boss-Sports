@@ -1421,17 +1421,39 @@ export const supabaseDb = {
 
     const totalHoursBooked = confirmedBookings.reduce((sum, b) => sum + (b.durationMinutes || 60) / 60, 0);
 
+    const grossBookedValue = confirmedBookings.reduce((sum, b) => sum + Number(b.totalPrice), 0);
+    const channelBreakdown = {
+      online: validBookings.filter((b) => b.source === "ONLINE").length,
+      phone: validBookings.filter((b) => b.source === "PHONE").length,
+      walkin: validBookings.filter((b) => b.source === "WALKIN").length,
+    };
+
     return {
       generatedAt: new Date().toISOString(),
+      database: "SUPABASE_POSTGRES",
+      totalBookings: confirmedBookings.length,
+      confirmedBookings: confirmedBookings.length,
+      pendingVerificationsCount: pendingVerifications.length,
+      pendingVerificationValue: unverifiedPendingRevenue,
+      realizedRevenue,
+      totalRevenue: realizedRevenue,
+      grossBookedValue,
+      pendingVenuePayment,
+      onlineRevenue,
+      cashRevenue,
+      upiCounterRevenue,
+      channelBreakdown,
       summary: {
         totalConfirmedBookings: confirmedBookings.length,
         totalPendingVerifications: pendingVerifications.length,
+        pendingVerificationsCount: pendingVerifications.length,
         totalCancelledBookings: bookings.filter((b) => b.status === "CANCELLED").length,
         realizedRevenue,
         onlineRevenue,
         cashRevenue,
         upiCounterRevenue,
         pendingVenuePayment,
+        grossBookedValue,
         unverifiedPendingRevenue,
         totalHoursBooked,
       },

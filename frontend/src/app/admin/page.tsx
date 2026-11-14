@@ -712,7 +712,7 @@ export default function OwnerAdminPage() {
             >
               <ShieldCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>UPI Verifications</span>
-              {reportData?.summary?.pendingVerificationsCount > 0 && (
+              {(reportData?.summary?.pendingVerificationsCount ?? 0) > 0 && (
                 <span className="bg-amber-400 text-black text-[10px] font-extrabold px-1.5 py-0.5 rounded-full ml-1">
                   {reportData.summary.pendingVerificationsCount}
                 </span>
@@ -773,7 +773,7 @@ export default function OwnerAdminPage() {
               <div className="p-5 rounded-3xl bg-[#0d141f] border border-white/10 relative overflow-hidden">
                 <div className="text-xs text-white/50 uppercase tracking-wider font-semibold">Realized Collected Revenue</div>
                 <div className="text-2xl sm:text-3xl font-extrabold text-white mt-2">
-                  ₹{(reportData.summary.realizedRevenue ?? reportData.summary.grandTotalRevenue ?? 0).toLocaleString("en-IN")}
+                  ₹{(reportData?.summary?.realizedRevenue ?? reportData?.summary?.grandTotalRevenue ?? 0).toLocaleString("en-IN")}
                 </div>
                 <div className="text-[11px] text-[#c7f711] mt-2 flex items-center gap-1">
                   <span>Cash + UPI + Paid Online Only</span>
@@ -783,17 +783,17 @@ export default function OwnerAdminPage() {
               <div className="p-5 rounded-3xl bg-[#0d141f] border border-amber-500/20 relative overflow-hidden">
                 <div className="text-xs text-amber-400 uppercase tracking-wider font-semibold">Pending Venue Payments</div>
                 <div className="text-2xl sm:text-3xl font-extrabold text-amber-400 mt-2">
-                  ₹{(reportData.summary.pendingVenuePayment ?? 0).toLocaleString("en-IN")}
+                  ₹{(reportData?.summary?.pendingVenuePayment ?? 0).toLocaleString("en-IN")}
                 </div>
                 <div className="text-[11px] text-white/50 mt-2">
-                  Gross Booked Value: ₹{(reportData.summary.grossBookedValue ?? 0).toLocaleString("en-IN")}
+                  Gross Booked Value: ₹{(reportData?.summary?.grossBookedValue ?? 0).toLocaleString("en-IN")}
                 </div>
               </div>
 
               <div className="p-5 rounded-3xl bg-[#0d141f] border border-emerald-500/20 relative overflow-hidden">
                 <div className="text-xs text-emerald-400 uppercase tracking-wider font-semibold">Cash Counter Intake</div>
                 <div className="text-2xl sm:text-3xl font-extrabold text-emerald-400 mt-2">
-                  ₹{(reportData.summary.totalCashReconciliation ?? 0).toLocaleString("en-IN")}
+                  ₹{(reportData?.summary?.totalCashReconciliation ?? 0).toLocaleString("en-IN")}
                 </div>
                 <div className="text-[11px] text-white/50 mt-2">Physical Cash in Counter Drawer</div>
               </div>
@@ -801,10 +801,10 @@ export default function OwnerAdminPage() {
               <div className="p-5 rounded-3xl bg-[#0d141f] border border-cyan-500/20 relative overflow-hidden">
                 <div className="text-xs text-cyan-400 uppercase tracking-wider font-semibold">UPI &amp; Online Intake</div>
                 <div className="text-2xl sm:text-3xl font-extrabold text-cyan-400 mt-2">
-                  ₹{((reportData.summary.totalUpiReconciliation ?? 0) + (reportData.summary.totalOnlineReconciliation ?? 0)).toLocaleString("en-IN")}
+                  ₹{((reportData?.summary?.totalUpiReconciliation ?? 0) + (reportData?.summary?.totalOnlineReconciliation ?? 0)).toLocaleString("en-IN")}
                 </div>
                 <div className="text-[11px] text-white/50 mt-2">
-                  Counter UPI: ₹{(reportData.summary.totalUpiReconciliation ?? 0).toLocaleString("en-IN")} • Online: ₹{(reportData.summary.totalOnlineReconciliation ?? 0).toLocaleString("en-IN")}
+                  Counter UPI: ₹{(reportData?.summary?.totalUpiReconciliation ?? 0).toLocaleString("en-IN")} • Online: ₹{(reportData?.summary?.totalOnlineReconciliation ?? 0).toLocaleString("en-IN")}
                 </div>
               </div>
             </div>
@@ -1009,39 +1009,39 @@ export default function OwnerAdminPage() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5 text-xs">
                     <span className="text-white/60">Total Confirmed Bookings:</span>
-                    <span className="font-bold text-white font-mono shrink-0">{reportData.pickleballDatabase.totalBookings}</span>
+                    <span className="font-bold text-white font-mono shrink-0">{reportData.pickleballDatabase?.totalBookings ?? reportData.summary?.confirmedBookings ?? 0}</span>
                   </div>
                   <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5 text-xs">
                     <span className="text-white/60">Realized Collected Revenue:</span>
-                    <span className="font-bold text-[#c7f711] font-mono text-sm shrink-0">₹{reportData.pickleballDatabase.realizedRevenue ?? reportData.pickleballDatabase.totalRevenue}</span>
+                    <span className="font-bold text-[#c7f711] font-mono text-sm shrink-0">₹{(reportData.pickleballDatabase?.realizedRevenue ?? reportData.pickleballDatabase?.totalRevenue ?? reportData.summary?.realizedRevenue ?? 0).toLocaleString("en-IN")}</span>
                   </div>
                   <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5 text-xs">
                     <span className="text-white/60">Pending Collection at Venue:</span>
-                    <span className="font-bold text-amber-400 font-mono shrink-0">₹{reportData.pickleballDatabase.pendingVenuePayment ?? 0}</span>
+                    <span className="font-bold text-amber-400 font-mono shrink-0">₹{(reportData.pickleballDatabase?.pendingVenuePayment ?? reportData.summary?.pendingVenuePayment ?? 0).toLocaleString("en-IN")}</span>
                   </div>
-                  {reportData.pickleballDatabase.pendingVerificationsCount > 0 && (
+                  {(reportData.pickleballDatabase?.pendingVerificationsCount ?? reportData.summary?.pendingVerificationsCount ?? 0) > 0 && (
                     <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5 text-xs bg-amber-500/10 px-2 rounded-lg">
                       <span className="text-amber-300 font-medium">Pending UPI Verifications:</span>
                       <span className="font-bold text-amber-300 font-mono shrink-0">
-                        {reportData.pickleballDatabase.pendingVerificationsCount} bookings (₹{reportData.pickleballDatabase.pendingVerificationValue ?? 0})
+                        {reportData.pickleballDatabase?.pendingVerificationsCount ?? reportData.summary?.pendingVerificationsCount} bookings (₹{(reportData.pickleballDatabase?.pendingVerificationValue ?? reportData.summary?.pendingVerificationValue ?? 0).toLocaleString("en-IN")})
                       </span>
                     </div>
                   )}
                   <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5 text-xs">
                     <span className="text-white/60">Gross Booked Value (All Active):</span>
-                    <span className="font-bold text-white font-mono shrink-0">₹{reportData.pickleballDatabase.grossBookedValue ?? 0}</span>
+                    <span className="font-bold text-white font-mono shrink-0">₹{(reportData.pickleballDatabase?.grossBookedValue ?? reportData.summary?.grossBookedValue ?? 0).toLocaleString("en-IN")}</span>
                   </div>
                   <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5 text-xs">
                     <span className="text-white/60">Cash Collected at Counter:</span>
-                    <span className="font-bold text-white font-mono shrink-0">₹{reportData.pickleballDatabase.cashRevenue}</span>
+                    <span className="font-bold text-white font-mono shrink-0">₹{(reportData.pickleballDatabase?.cashRevenue ?? reportData.summary?.totalCashReconciliation ?? 0).toLocaleString("en-IN")}</span>
                   </div>
                   <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5 text-xs">
                     <span className="text-white/60">UPI QR Counter Revenue:</span>
-                    <span className="font-bold text-white font-mono shrink-0">₹{reportData.pickleballDatabase.upiCounterRevenue}</span>
+                    <span className="font-bold text-white font-mono shrink-0">₹{(reportData.pickleballDatabase?.upiCounterRevenue ?? reportData.summary?.totalUpiReconciliation ?? 0).toLocaleString("en-IN")}</span>
                   </div>
                   <div className="flex justify-between items-center gap-3 py-2 border-b border-white/5 text-xs">
                     <span className="text-white/60">Online Verified Payments:</span>
-                    <span className="font-bold text-white font-mono shrink-0">₹{reportData.pickleballDatabase.onlineRevenue}</span>
+                    <span className="font-bold text-white font-mono shrink-0">₹{(reportData.pickleballDatabase?.onlineRevenue ?? reportData.summary?.totalOnlineReconciliation ?? 0).toLocaleString("en-IN")}</span>
                   </div>
 
                   <div className="pt-2">
@@ -1049,15 +1049,15 @@ export default function OwnerAdminPage() {
                     <div className="grid grid-cols-1 min-[360px]:grid-cols-3 gap-2 text-center">
                       <div className="p-2.5 rounded-xl bg-white/5">
                         <div className="text-[10px] text-white/40 uppercase">Online Web</div>
-                        <div className="font-bold text-sm text-white mt-0.5">{reportData.pickleballDatabase.channelBreakdown.online}</div>
+                        <div className="font-bold text-sm text-white mt-0.5">{reportData.pickleballDatabase?.channelBreakdown?.online ?? 0}</div>
                       </div>
                       <div className="p-2.5 rounded-xl bg-white/5">
                         <div className="text-[10px] text-white/40 uppercase">Phone Desk</div>
-                        <div className="font-bold text-sm text-white mt-0.5">{reportData.pickleballDatabase.channelBreakdown.phone}</div>
+                        <div className="font-bold text-sm text-white mt-0.5">{reportData.pickleballDatabase?.channelBreakdown?.phone ?? 0}</div>
                       </div>
                       <div className="p-2.5 rounded-xl bg-white/5">
                         <div className="text-[10px] text-white/40 uppercase">Counter Walk-in</div>
-                        <div className="font-bold text-sm text-white mt-0.5">{reportData.pickleballDatabase.channelBreakdown.walkin}</div>
+                        <div className="font-bold text-sm text-white mt-0.5">{reportData.pickleballDatabase?.channelBreakdown?.walkin ?? 0}</div>
                       </div>
                     </div>
                   </div>

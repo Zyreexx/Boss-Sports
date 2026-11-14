@@ -50,6 +50,8 @@ export async function GET(req: NextRequest) {
             totalBookings: s.totalConfirmedBookings,
             confirmedBookings: s.totalConfirmedBookings,
             totalPendingVerifications: s.totalPendingVerifications,
+            pendingVerificationsCount: s.pendingVerificationsCount ?? s.totalPendingVerifications ?? 0,
+            pendingVerificationValue: report.pendingVerificationValue ?? 0,
             totalCancelledBookings: s.totalCancelledBookings,
             activeHolds: 0,
           },
