@@ -828,10 +828,13 @@ export default function OwnerAdminPage() {
                   </span>
                   <button
                     type="button"
-                    onClick={fetchAdminBookings}
+                    onClick={() => {
+                      fetchAdminBookings();
+                      fetchReports();
+                    }}
                     className="p-2 min-w-[40px] min-h-[40px] inline-flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white"
-                    title="Refresh Schedule"
-                    aria-label="Refresh Schedule"
+                    title="Refresh Schedule & Revenue Audit"
+                    aria-label="Refresh Schedule & Revenue Audit"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${bookingsLoading ? "animate-spin" : ""}`} aria-hidden="true" />
                   </button>
